@@ -1,0 +1,27 @@
+# Web scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Firebase
+firebase-admin>=6.2.0
+
+# Geolocation
+geopy>=2.4.0
+
+# Web Push notifications
+pywebpush>=1.14.0
+
+# Scheduling
+schedule>=1.2.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Date parsing
+python-dateutil>=2.8.2
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+responses>=0.24.0
