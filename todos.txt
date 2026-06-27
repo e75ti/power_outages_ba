@@ -1,0 +1,103 @@
+electricity-outage-scraper/
+├── src/
+│   ├── main.py                          # Entry point, scheduler loop
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── settings.py                  # All configuration constants
+│   │   └── scraper_urls.py              # NEW: URL configurations per scraper
+│   ├── database/
+│   │   ├── __init__.py
+│   │   └── firebase_manager.py          # RENAMED: Firebase Firestore operations
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── outage.py                    # Outage dataclass (standardized)
+│   │   ├── subscription.py              # User subscription model
+│   │   └── location.py                  # NEW: Location with coordinates
+│   ├── scrapers/
+│   │   ├── __init__.py
+│   │   ├── base_scraper.py              # NEW: Abstract base class
+│   │   ├── epbih_scraper.py             # NEW: EPBiH scraper
+│   │   ├── ephzhb_scraper.py            # NEW: EPHZHB scraper
+│   │   ├── elektrokrajina_scraper.py    # NEW: Elektrokrajina scraper
+│   │   ├── elektrodoboj_scraper.py      # NEW: Elektro Doboj scraper
+│   │   ├── elektrobijeljina_scraper.py  # NEW: Elektro Bijeljina scraper
+│   │   ├── edbpale_scraper.py           # NEW: EDB Pale scraper
+│   │   ├── elektrohercegovina_scraper.py# NEW: Elektrohercegovina scraper
+│   │   └── scraper_manager.py           # NEW: Orchestrates all scrapers
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── geo_service.py               # Enhanced geo matching
+│   │   ├── notification_service.py      # Web Push notifications
+│   │   ├── subscription_service.py      # Subscription CRUD + matching
+│   │   └── text_parser.py               # NEW: Cyrillic/Latin text normalization
+│   └── utils/
+│       ├── __init__.py
+│       ├── config.py                    # Environment variable loader
+│       └── constants.py                 # NEW: City lists, keywords, etc.
+├── tests/
+│   ├── __init__.py
+│   ├── test_scrapers.py
+│   ├── test_services.py
+│   └── test_models.py
+├── .env.example
+├── requirements.txt
+└── README.md
+
+
+
+
+
+
+
+
+
+The web frontend (HTML/JS for subscription page)?
+The remaining scrapers (EDB Pale, Elektrohercegovina)?
+Tests for the services?
+
+
+
+# Navigate to project root
+cd /home/dude/Downloads/epbihscraperitd/electricity-outage-scraper
+
+# Test each scraper individually
+python test_scraper_individual.py epbih
+python test_scraper_individual.py ephzhb
+python test_scraper_individual.py elektrokrajina
+python test_scraper_individual.py elektrodoboj
+python test_scraper_individual.py elektrobijeljina
+
+# Test with verbose output (shows all outages)
+python test_scraper_individual.py epbih -v
+
+# Export to JSON file (for inspection)
+python test_scraper_individual.py epbih --export
+
+# Save to Firebase database
+python test_scraper_individual.py epbih --save
+
+# Test ALL scrapers
+python test_scraper_individual.py all
+
+# Test all and save to database
+python test_scraper_individual.py all --save --export
+
+
+
+
+
+
+
+
+
+
+NOTIFY IDEA HOW TO MAKE THIS WORK
+
+
+LOOK
+
+THEY SUB TO STREETS, I THEN
+
+1) DIREKTAN MATCH SA UNESENOM LOKACIJOM I NJENOM RIJEČI
+2) GEOPY RURAL MATCHING
+3) IF ANY SIMILAR WORD MATCHING (FIX FOR PADEŽI AND THEIR AREA ROUGH (NATJERAJ IH DA ODABERI ELEKTRANU I POTVRDE BROAD LOKACIJU NA MAPU NA FRONTEND SAJTU))
