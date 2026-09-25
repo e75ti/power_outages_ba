@@ -152,9 +152,6 @@ class BaseScraper(ABC):
         return session
     
     def _get(self, url: str, **kwargs) -> requests.Response:
-        """
-        Make a GET request with error handling, SSL fallback, and encoding fixes.
-        """
         last_error = None
         kwargs.pop('verify', None)
         
@@ -162,15 +159,22 @@ class BaseScraper(ABC):
             try:
                 self.logger.debug(f"GET {url} (attempt {attempt + 1}/{self.max_retries + 1})")
                 
-                response = self.session.get(
-                    url, 
-                    timeout=self.timeout, 
-                    verify=False, 
-                    **kwargs
-                )
+                # THE HACK: If the URL contains lowercase hex, stop Python from ruining it
+                if '%' in url:
+                    req = requests.Request('GET', url)
+                    prep = self.session.prepare_request(req)
+                    prep.url = url  # Force overwrite the normalized URL
+                    response = self.session.send(prep, timeout=self.timeout, verify=False)
+                else:
+                    response = self.session.get(url, timeout=self.timeout, verify=False, **kwargs)
+                
+                # Fast fail for 404s
+                if response.status_code == 404:
+                    self.logger.debug(f"Page missing (404), skipping: {url}")
+                    return response
+                    
                 response.raise_for_status()
                 
-                # FIX: Force correct encoding for Bosnian Cyrillic/Latin sites
                 if response.encoding and response.encoding.lower() in ['iso-8859-1', 'windows-1250', 'iso-8859-2']:
                     response.encoding = response.apparent_encoding or 'utf-8'
                     
