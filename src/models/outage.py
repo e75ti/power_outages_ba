@@ -1,3 +1,4 @@
+# src/models/outage.py
 """Outage data model."""
 
 from dataclasses import dataclass, field
@@ -44,11 +45,7 @@ class Outage:
     def _generate_id(self) -> str:
         """
         Generate a unique ID for this outage based on key fields.
-        
-        Returns:
-            Unique hash string
         """
-        # Create a unique key from provider, date, location, and time
         key_parts = [
             self.provider,
             self.region,
@@ -62,12 +59,6 @@ class Outage:
         return hashlib.sha256(key_string.encode()).hexdigest()[:16]
     
     def to_dict(self) -> dict:
-        """
-        Convert outage to dictionary for storage.
-        
-        Returns:
-            Dictionary representation
-        """
         return {
             "outage_id": self.outage_id,
             "provider": self.provider,
@@ -88,16 +79,6 @@ class Outage:
     
     @classmethod
     def from_dict(cls, data: dict) -> "Outage":
-        """
-        Create an Outage from a dictionary.
-        
-        Args:
-            data: Dictionary with outage data
-            
-        Returns:
-            Outage object
-        """
-        # Parse datetime fields
         date_start = None
         if data.get("date_start"):
             date_start = datetime.fromisoformat(data["date_start"])
@@ -110,7 +91,7 @@ class Outage:
         if data.get("created_at"):
             created_at = datetime.fromisoformat(data["created_at"])
         
-        return cls(
+        obj = cls(
             provider=data.get("provider", ""),
             region=data.get("region", ""),
             municipality=data.get("municipality", ""),
@@ -126,84 +107,49 @@ class Outage:
             created_at=created_at,
             coordinates=data.get("coordinates"),
         )
+        
+        # Override generated ID if loading from database
+        if data.get("outage_id"):
+            obj.outage_id = data["outage_id"]
+            
+        return obj
     
     def get_full_datetime_start(self) -> Optional[datetime]:
-        """
-        Get the full start datetime combining date and time.
-        
-        Returns:
-            Combined datetime or just date
-        """
         if not self.date_start:
             return None
-        
         if self.time_start:
             try:
                 hour, minute = map(int, self.time_start.split(':'))
                 return self.date_start.replace(hour=hour, minute=minute)
             except (ValueError, AttributeError):
                 pass
-        
         return self.date_start
     
     def get_full_datetime_end(self) -> Optional[datetime]:
-        """
-        Get the full end datetime combining date and time.
-        
-        Returns:
-            Combined datetime or None
-        """
         end_date = self.date_end or self.date_start
-        
         if not end_date:
             return None
-        
         if self.time_end:
             try:
                 hour, minute = map(int, self.time_end.split(':'))
                 return end_date.replace(hour=hour, minute=minute)
             except (ValueError, AttributeError):
                 pass
-        
         return None
     
     def is_active(self, current_time: Optional[datetime] = None) -> bool:
-        """
-        Check if the outage is currently active.
-        
-        Args:
-            current_time: Time to check against (defaults to now)
-            
-        Returns:
-            True if outage is active
-        """
         if current_time is None:
             current_time = datetime.now()
-        
         start = self.get_full_datetime_start()
         end = self.get_full_datetime_end()
-        
         if not start:
             return False
-        
         if end:
             return start <= current_time <= end
-        
-        # If no end time, check if it's the same day
         return start.date() == current_time.date() and current_time >= start
     
     def matches_location(self, search_term: str) -> bool:
-        """
-        Check if the outage matches a location search term.
-        
-        Args:
-            search_term: Location to search for
-            
-        Returns:
-            True if there's a match
-        """
         search_lower = search_term.lower()
-        
         return (
             search_lower in self.region.lower() or
             search_lower in self.municipality.lower() or
@@ -212,17 +158,13 @@ class Outage:
         )
     
     def __str__(self) -> str:
-        """String representation of the outage."""
         time_str = ""
         if self.time_start and self.time_end:
             time_str = f" ({self.time_start} - {self.time_end})"
         elif self.time_start:
             time_str = f" ({self.time_start})"
-        
         date_str = self.date_start.strftime("%d.%m.%Y") if self.date_start else "Unknown date"
-        
         return f"[{self.provider}] {date_str}{time_str}: {self.municipality} - {self.area[:50]}"
     
     def __repr__(self) -> str:
-        """Debug representation."""
         return f"Outage(id={self.outage_id}, provider={self.provider}, date={self.date_start})"

@@ -1,408 +1,321 @@
-"""Firebase Firestore database manager."""
+# src/database/db_manager.py
+"""SQLAlchemy database manager (PostgreSQL / SQLite)."""
 
+import json
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 
-import firebase_admin
-from firebase_admin import credentials, firestore
+from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Integer, Text
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.exc import IntegrityError
 
 from src.models.outage import Outage
 from src.models.subscription import Subscription
-from src.utils.config import load_config
+from src.config.settings import load_config
+
+Base = declarative_base()
+
+class OutageModel(Base):
+    __tablename__ = 'outages'
+    id = Column(String, primary_key=True)
+    provider = Column(String, nullable=False)
+    region = Column(String)
+    municipality = Column(String)
+    area = Column(Text)
+    streets = Column(Text)
+    date_start = Column(DateTime)
+    date_end = Column(DateTime, nullable=True)
+    time_start = Column(String, nullable=True)
+    time_end = Column(String, nullable=True)
+    reason = Column(Text)
+    facility = Column(String)
+    raw_text = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+
+class SubscriptionModel(Base):
+    __tablename__ = 'subscriptions'
+    id = Column(String, primary_key=True)
+    street_name = Column(String, nullable=False)
+    municipality = Column(String, nullable=False)
+    push_endpoint = Column(String, nullable=False)
+    push_keys = Column(Text) # Stored as JSON string
+    is_rural = Column(Boolean, default=False)
+    notify_radius_km = Column(Float, default=5.0)
+    is_active = Column(Boolean, default=True)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_notified_at = Column(DateTime, nullable=True)
+    notification_count = Column(Integer, default=0)
+    provider_preference = Column(Text) # Stored as JSON string
+
+class NotificationSentModel(Base):
+    __tablename__ = 'notifications_sent'
+    id = Column(String, primary_key=True) # outage_id + "_" + subscription_id
+    outage_id = Column(String, nullable=False)
+    subscription_id = Column(String, nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    success = Column(Boolean, default=True)
+
+class GeocacheModel(Base):
+    __tablename__ = 'geocache'
+    address_hash = Column(String, primary_key=True)
+    address = Column(String, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    cached_at = Column(DateTime, default=datetime.utcnow)
 
 
 class DatabaseManager:
-    """
-    Manages all Firebase Firestore operations.
+    """Manages all Database operations via SQLAlchemy."""
     
-    Collections:
-        - outages: Stores all scraped outages
-        - subscriptions: Stores user subscriptions
-        - notifications_sent: Tracks sent notifications to prevent duplicates
-    """
-    
-    def __init__(self, credentials_path: Optional[str] = None):
-        """
-        Initialize the database manager.
-        
-        Args:
-            credentials_path: Path to Firebase credentials JSON file
-        """
+    def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config = load_config()
         
-        if credentials_path is None:
-            credentials_path = self.config.get("firebase_credentials_path", "")
-        
-        self._initialize_firebase(credentials_path)
-        self.db = firestore.client()
-        
-        # Collection references
-        self.outages_ref = self.db.collection("outages")
-        self.subscriptions_ref = self.db.collection("subscriptions")
-        self.notifications_ref = self.db.collection("notifications_sent")
-        self.geocache_ref = self.db.collection("geocache")
-    
-    def _initialize_firebase(self, credentials_path: str) -> None:
-        """Initialize Firebase app if not already initialized."""
-        try:
-            firebase_admin.get_app()
-            self.logger.debug("Firebase already initialized")
-        except ValueError:
-            if credentials_path:
-                cred = credentials.Certificate(credentials_path)
-                firebase_admin.initialize_app(cred)
-                self.logger.info("Firebase initialized with credentials")
-            else:
-                # Use default credentials (for Cloud Run, etc.)
-                firebase_admin.initialize_app()
-                self.logger.info("Firebase initialized with default credentials")
+        db_uri = self.config.get("DATABASE_URI", "sqlite:///outages.db")
+        self.engine = create_engine(db_uri, echo=False)
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
     
     # ==================== OUTAGE OPERATIONS ====================
     
     def save_outage(self, outage: Outage) -> bool:
-        """
-        Save an outage to the database.
-        
-        Args:
-            outage: Outage object to save
-            
-        Returns:
-            True if saved (new), False if already exists
-        """
-        doc_ref = self.outages_ref.document(outage.outage_id)
-        doc = doc_ref.get()
-        
-        if doc.exists:
-            self.logger.debug(f"Outage {outage.outage_id} already exists")
-            return False
-        
-        doc_ref.set(outage.to_dict())
-        self.logger.info(f"Saved new outage: {outage.outage_id}")
-        return True
-    
-    def save_outages(self, outages: List[Outage]) -> Dict[str, int]:
-        """
-        Save multiple outages to the database.
-        
-        Args:
-            outages: List of Outage objects
-            
-        Returns:
-            Dictionary with counts: {"new": X, "existing": Y}
-        """
+        """Save a single outage. Returns True if newly inserted."""
+        with self.Session() as session:
+            existing = session.query(OutageModel).filter_by(id=outage.outage_id).first()
+            if existing:
+                return False
+                
+            model = self._outage_to_model(outage)
+            session.add(model)
+            session.commit()
+            return True
+
+    def save_outages(self, outages: List[Outage]) -> Dict[str, Any]:
+        """Save multiple outages. Returns stats and a list of new objects."""
         new_count = 0
         existing_count = 0
+        new_objects = []
         
-        # Use batch writes for efficiency
-        batch = self.db.batch()
-        batch_count = 0
-        
-        for outage in outages:
-            doc_ref = self.outages_ref.document(outage.outage_id)
-            doc = doc_ref.get()
+        with self.Session() as session:
+            for outage in outages:
+                existing = session.query(OutageModel).filter_by(id=outage.outage_id).first()
+                if not existing:
+                    model = self._outage_to_model(outage)
+                    session.add(model)
+                    new_count += 1
+                    new_objects.append(outage)
+                else:
+                    existing_count += 1
+            session.commit()
             
-            if not doc.exists:
-                batch.set(doc_ref, outage.to_dict())
-                new_count += 1
-                batch_count += 1
-            else:
-                existing_count += 1
-            
-            # Firestore batch limit is 500
-            if batch_count >= 400:
-                batch.commit()
-                batch = self.db.batch()
-                batch_count = 0
-        
-        if batch_count > 0:
-            batch.commit()
-        
-        self.logger.info(f"Saved {new_count} new outages, {existing_count} already existed")
-        return {"new": new_count, "existing": existing_count}
-    
+        return {"new": new_count, "existing": existing_count, "new_objects": new_objects}
+
     def get_outage(self, outage_id: str) -> Optional[Outage]:
-        """
-        Get an outage by ID.
-        
-        Args:
-            outage_id: Outage ID
-            
-        Returns:
-            Outage object or None
-        """
-        doc = self.outages_ref.document(outage_id).get()
-        if doc.exists:
-            return Outage.from_dict(doc.to_dict())
-        return None
-    
+        with self.Session() as session:
+            model = session.query(OutageModel).filter_by(id=outage_id).first()
+            return self._model_to_outage(model) if model else None
+
     def get_recent_outages(self, days: int = 7) -> List[Outage]:
-        """
-        Get outages from the last N days.
-        
-        Args:
-            days: Number of days to look back
-            
-        Returns:
-            List of Outage objects
-        """
         cutoff = datetime.now() - timedelta(days=days)
-        
-        docs = (
-            self.outages_ref
-            .where("created_at", ">=", cutoff.isoformat())
-            .stream()
-        )
-        
-        return [Outage.from_dict(doc.to_dict()) for doc in docs]
-    
+        with self.Session() as session:
+            models = session.query(OutageModel).filter(OutageModel.created_at >= cutoff).all()
+            return [self._model_to_outage(m) for m in models]
+
     def get_upcoming_outages(self) -> List[Outage]:
-        """
-        Get outages scheduled for today or future.
-        
-        Returns:
-            List of Outage objects
-        """
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        docs = (
-            self.outages_ref
-            .where("date_start", ">=", today.isoformat())
-            .stream()
-        )
-        
-        return [Outage.from_dict(doc.to_dict()) for doc in docs]
-    
+        with self.Session() as session:
+            models = session.query(OutageModel).filter(OutageModel.date_start >= today).all()
+            return [self._model_to_outage(m) for m in models]
+
     def delete_old_outages(self, days: int = 30) -> int:
-        """
-        Delete outages older than N days.
-        
-        Args:
-            days: Delete outages older than this many days
-            
-        Returns:
-            Number of deleted outages
-        """
         cutoff = datetime.now() - timedelta(days=days)
-        
-        docs = (
-            self.outages_ref
-            .where("date_start", "<", cutoff.isoformat())
-            .stream()
-        )
-        
-        deleted = 0
-        batch = self.db.batch()
-        batch_count = 0
-        
-        for doc in docs:
-            batch.delete(doc.reference)
-            deleted += 1
-            batch_count += 1
-            
-            if batch_count >= 400:
-                batch.commit()
-                batch = self.db.batch()
-                batch_count = 0
-        
-        if batch_count > 0:
-            batch.commit()
-        
-        self.logger.info(f"Deleted {deleted} old outages")
-        return deleted
-    
+        with self.Session() as session:
+            deleted = session.query(OutageModel).filter(OutageModel.date_start < cutoff).delete()
+            session.commit()
+            return deleted
+
     # ==================== SUBSCRIPTION OPERATIONS ====================
-    
+
     def save_subscription(self, subscription: Subscription) -> bool:
-        """
-        Save a subscription to the database.
-        
-        Args:
-            subscription: Subscription object
-            
-        Returns:
-            True if saved successfully
-        """
-        doc_ref = self.subscriptions_ref.document(subscription.subscription_id)
-        doc_ref.set(subscription.to_dict())
-        self.logger.info(f"Saved subscription: {subscription.subscription_id}")
-        return True
-    
+        with self.Session() as session:
+            existing = session.query(SubscriptionModel).filter_by(id=subscription.subscription_id).first()
+            if existing:
+                session.delete(existing)
+            model = self._subscription_to_model(subscription)
+            session.add(model)
+            session.commit()
+            return True
+
     def get_subscription(self, subscription_id: str) -> Optional[Subscription]:
-        """
-        Get a subscription by ID.
-        
-        Args:
-            subscription_id: Subscription ID
-            
-        Returns:
-            Subscription object or None
-        """
-        doc = self.subscriptions_ref.document(subscription_id).get()
-        if doc.exists:
-            return Subscription.from_dict(doc.to_dict())
-        return None
-    
+        with self.Session() as session:
+            model = session.query(SubscriptionModel).filter_by(id=subscription_id).first()
+            return self._model_to_subscription(model) if model else None
+
     def get_subscriptions_by_endpoint(self, push_endpoint: str) -> List[Subscription]:
-        """
-        Get all subscriptions for a push endpoint.
-        
-        Args:
-            push_endpoint: Web Push endpoint URL
-            
-        Returns:
-            List of Subscription objects
-        """
-        docs = (
-            self.subscriptions_ref
-            .where("push_endpoint", "==", push_endpoint)
-            .where("is_active", "==", True)
-            .stream()
-        )
-        
-        return [Subscription.from_dict(doc.to_dict()) for doc in docs]
-    
+        with self.Session() as session:
+            models = session.query(SubscriptionModel).filter_by(push_endpoint=push_endpoint, is_active=True).all()
+            return [self._model_to_subscription(m) for m in models]
+
     def get_all_active_subscriptions(self) -> List[Subscription]:
-        """
-        Get all active subscriptions.
-        
-        Returns:
-            List of Subscription objects
-        """
-        docs = (
-            self.subscriptions_ref
-            .where("is_active", "==", True)
-            .stream()
-        )
-        
-        return [Subscription.from_dict(doc.to_dict()) for doc in docs]
-    
-    def get_subscriptions_by_municipality(self, municipality: str) -> List[Subscription]:
-        """
-        Get subscriptions for a specific municipality.
-        
-        Args:
-            municipality: Municipality name
-            
-        Returns:
-            List of Subscription objects
-        """
-        docs = (
-            self.subscriptions_ref
-            .where("municipality", "==", municipality.lower())
-            .where("is_active", "==", True)
-            .stream()
-        )
-        
-        return [Subscription.from_dict(doc.to_dict()) for doc in docs]
-    
+        with self.Session() as session:
+            models = session.query(SubscriptionModel).filter_by(is_active=True).all()
+            return [self._model_to_subscription(m) for m in models]
+
     def delete_subscription(self, subscription_id: str) -> bool:
-        """
-        Delete a subscription.
-        
-        Args:
-            subscription_id: Subscription ID
-            
-        Returns:
-            True if deleted
-        """
-        self.subscriptions_ref.document(subscription_id).delete()
-        self.logger.info(f"Deleted subscription: {subscription_id}")
-        return True
-    
+        with self.Session() as session:
+            deleted = session.query(SubscriptionModel).filter_by(id=subscription_id).delete()
+            session.commit()
+            return deleted > 0
+
     def deactivate_subscription(self, subscription_id: str) -> bool:
-        """
-        Deactivate a subscription (soft delete).
-        
-        Args:
-            subscription_id: Subscription ID
-            
-        Returns:
-            True if deactivated
-        """
-        self.subscriptions_ref.document(subscription_id).update({
-            "is_active": False,
-            "updated_at": datetime.now().isoformat(),
-        })
-        self.logger.info(f"Deactivated subscription: {subscription_id}")
-        return True
-    
+        with self.Session() as session:
+            sub = session.query(SubscriptionModel).filter_by(id=subscription_id).first()
+            if sub:
+                sub.is_active = False
+                session.commit()
+                return True
+            return False
+
     # ==================== NOTIFICATION TRACKING ====================
-    
+
     def is_notification_sent(self, outage_id: str, subscription_id: str) -> bool:
-        """
-        Check if a notification was already sent.
-        
-        Args:
-            outage_id: Outage ID
-            subscription_id: Subscription ID
+        notif_id = f"{outage_id}_{subscription_id}"
+        with self.Session() as session:
+            return session.query(NotificationSentModel).filter_by(id=notif_id).first() is not None
+
+    def record_notification_sent(self, outage_id: str, subscription_id: str, success: bool = True) -> None:
+        notif_id = f"{outage_id}_{subscription_id}"
+        with self.Session() as session:
+            notif = NotificationSentModel(
+                id=notif_id,
+                outage_id=outage_id,
+                subscription_id=subscription_id,
+                success=success
+            )
+            session.add(notif)
+            session.commit()
             
-        Returns:
-            True if already sent
-        """
-        notification_id = f"{outage_id}_{subscription_id}"
-        doc = self.notifications_ref.document(notification_id).get()
-        return doc.exists
-    
-    def record_notification_sent(
-        self,
-        outage_id: str,
-        subscription_id: str,
-        success: bool = True,
-    ) -> None:
-        """
-        Record that a notification was sent.
-        
-        Args:
-            outage_id: Outage ID
-            subscription_id: Subscription ID
-            success: Whether the notification was sent successfully
-        """
-        notification_id = f"{outage_id}_{subscription_id}"
-        self.notifications_ref.document(notification_id).set({
-            "outage_id": outage_id,
-            "subscription_id": subscription_id,
-            "sent_at": datetime.now().isoformat(),
-            "success": success,
-        })
-    
+    def delete_old_notifications(self, days: int = 7) -> int:
+        cutoff = datetime.now() - timedelta(days=days)
+        with self.Session() as session:
+            deleted = session.query(NotificationSentModel).filter(NotificationSentModel.sent_at < cutoff).delete()
+            session.commit()
+            return deleted
+
     # ==================== GEOCACHE OPERATIONS ====================
-    
+
     def get_cached_coordinates(self, address: str) -> Optional[tuple]:
-        """
-        Get cached coordinates for an address.
-        
-        Args:
-            address: Address string
-            
-        Returns:
-            Tuple of (latitude, longitude) or None
-        """
         import hashlib
         address_hash = hashlib.md5(address.lower().encode()).hexdigest()
-        
-        doc = self.geocache_ref.document(address_hash).get()
-        if doc.exists:
-            data = doc.to_dict()
-            return (data["latitude"], data["longitude"])
+        with self.Session() as session:
+            model = session.query(GeocacheModel).filter_by(address_hash=address_hash).first()
+            if model:
+                return (model.latitude, model.longitude)
         return None
-    
+
     def cache_coordinates(self, address: str, latitude: float, longitude: float) -> None:
-        """
-        Cache coordinates for an address.
-        
-        Args:
-            address: Address string
-            latitude: Latitude
-            longitude: Longitude
-        """
         import hashlib
         address_hash = hashlib.md5(address.lower().encode()).hexdigest()
-        
-        self.geocache_ref.document(address_hash).set({
-            "address": address,
-            "latitude": latitude,
-            "longitude": longitude,
-            "cached_at": datetime.now().isoformat(),
-        })
+        with self.Session() as session:
+            if not session.query(GeocacheModel).filter_by(address_hash=address_hash).first():
+                cache = GeocacheModel(
+                    address_hash=address_hash,
+                    address=address,
+                    latitude=latitude,
+                    longitude=longitude
+                )
+                session.add(cache)
+                session.commit()
+                
+    def delete_old_geocache(self, days: int = 90) -> int:
+        cutoff = datetime.now() - timedelta(days=days)
+        with self.Session() as session:
+            deleted = session.query(GeocacheModel).filter(GeocacheModel.cached_at < cutoff).delete()
+            session.commit()
+            return deleted
+
+    # ==================== HELPERS ====================
+
+    def _outage_to_model(self, outage: Outage) -> OutageModel:
+        return OutageModel(
+            id=outage.outage_id,
+            provider=outage.provider,
+            region=outage.region,
+            municipality=outage.municipality,
+            area=outage.area,
+            streets=outage.streets,
+            date_start=outage.date_start,
+            date_end=outage.date_end,
+            time_start=outage.time_start,
+            time_end=outage.time_end,
+            reason=outage.reason,
+            facility=outage.facility,
+            raw_text=outage.raw_text,
+            created_at=outage.created_at,
+            lat=outage.coordinates[0] if outage.coordinates else None,
+            lng=outage.coordinates[1] if outage.coordinates else None,
+        )
+
+    def _model_to_outage(self, model: OutageModel) -> Outage:
+        data = {
+            "outage_id": model.id,
+            "provider": model.provider,
+            "region": model.region,
+            "municipality": model.municipality,
+            "area": model.area,
+            "streets": model.streets,
+            "date_start": model.date_start.isoformat() if model.date_start else None,
+            "date_end": model.date_end.isoformat() if model.date_end else None,
+            "time_start": model.time_start,
+            "time_end": model.time_end,
+            "reason": model.reason,
+            "facility": model.facility,
+            "raw_text": model.raw_text,
+            "created_at": model.created_at.isoformat() if model.created_at else None,
+            "coordinates": (model.lat, model.lng) if model.lat and model.lng else None,
+        }
+        return Outage.from_dict(data)
+
+    def _subscription_to_model(self, sub: Subscription) -> SubscriptionModel:
+        return SubscriptionModel(
+            id=sub.subscription_id,
+            street_name=sub.street_name,
+            municipality=sub.municipality,
+            push_endpoint=sub.push_endpoint,
+            push_keys=json.dumps(sub.push_keys),
+            is_rural=sub.is_rural,
+            notify_radius_km=sub.notify_radius_km,
+            is_active=sub.is_active,
+            lat=sub.coordinates[0] if sub.coordinates else None,
+            lng=sub.coordinates[1] if sub.coordinates else None,
+            created_at=sub.created_at,
+            updated_at=sub.updated_at,
+            last_notified_at=sub.last_notified_at,
+            notification_count=sub.notification_count,
+            provider_preference=json.dumps(sub.provider_preference)
+        )
+
+    def _model_to_subscription(self, model: SubscriptionModel) -> Subscription:
+        data = {
+            "subscription_id": model.id,
+            "street_name": model.street_name,
+            "municipality": model.municipality,
+            "push_endpoint": model.push_endpoint,
+            "push_keys": json.loads(model.push_keys) if model.push_keys else {},
+            "coordinates": (model.lat, model.lng) if model.lat and model.lng else None,
+            "is_rural": model.is_rural,
+            "notify_radius_km": model.notify_radius_km,
+            "is_active": model.is_active,
+            "created_at": model.created_at.isoformat() if model.created_at else None,
+            "updated_at": model.updated_at.isoformat() if model.updated_at else None,
+            "last_notified_at": model.last_notified_at.isoformat() if model.last_notified_at else None,
+            "notification_count": model.notification_count,
+            "provider_preference": json.loads(model.provider_preference) if model.provider_preference else [],
+        }
+        return Subscription.from_dict(data)

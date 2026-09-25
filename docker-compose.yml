@@ -1,0 +1,44 @@
+name: outage-scraper-stack
+
+services:
+  scraper-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: outage-scraper
+    restart: unless-stopped
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URI=postgresql://outage_user:outage_pass_123@postgres-db:5432/outage_db
+      - LOG_LEVEL=INFO
+      - SCRAPE_INTERVAL_MINUTES=30
+      - ENABLE_GEO_MATCHING=true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres-db:
+    image: postgres:16-alpine # Upgraded to Postgres 16
+    container_name: outage-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: outage_user
+      POSTGRES_PASSWORD: outage_pass_123
+      POSTGRES_DB: outage_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outage_user -d outage_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:

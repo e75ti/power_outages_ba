@@ -1,210 +1,61 @@
+# src/services/subscription_service.py
 """Subscription management service."""
 
 import logging
-from typing import List, Optional, Dict, Tuple
+from typing import List, Dict, Optional
 
 from src.models.outage import Outage
 from src.models.subscription import Subscription
 from src.database.db_manager import DatabaseManager
 from src.services.geo_service import GeoService
-from src.services.notification_service import NotificationService
+from src.services.notification_service import NotificationService, NotificationStatus
 
 
 class SubscriptionService:
-    """
-    Service for managing subscriptions and matching outages.
+    """Manages subscriptions, geo-matching, and auto-cleanup of dead tokens."""
     
-    Handles:
-    - Creating/updating/deleting subscriptions
-    - Finding matching subscriptions for outages
-    - Sending notifications
-    """
-    
-    def __init__(self, db_manager: Optional[DatabaseManager] = None):
-        """
-        Initialize the subscription service.
-        
-        Args:
-            db_manager: Database manager instance (creates one if not provided)
-        """
+    def __init__(self, db_manager: DatabaseManager):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.db = db_manager or DatabaseManager()
-        self.geo_service = GeoService()
+        self.db = db_manager
+        # Inject db into GeoService so it can access the cache
+        self.geo_service = GeoService(db_manager=self.db)
         self.notification_service = NotificationService()
     
-    def create_subscription(
-        self,
-        street_name: str,
-        municipality: str,
-        push_endpoint: str,
-        push_keys: Dict[str, str],
-        is_rural: bool = False,
-        coordinates: Optional[Tuple[float, float]] = None,
-    ) -> Subscription:
-        """
-        Create a new subscription.
-        
-        Args:
-            street_name: Street name to monitor
-            municipality: Municipality name
-            push_endpoint: Web Push endpoint URL
-            push_keys: Web Push keys (p256dh, auth)
-            is_rural: Enable area-based matching
-            coordinates: Optional coordinates for geo matching
-            
-        Returns:
-            Created Subscription object
-        """
-        # Geocode if coordinates not provided and is_rural
-        if is_rural and not coordinates:
-            coordinates = self.geo_service.geocode_address(
-                f"{street_name}, {municipality}"
-            )
-        
-        subscription = Subscription(
-            street_name=street_name,
-            municipality=municipality,
-            push_endpoint=push_endpoint,
-            push_keys=push_keys,
-            is_rural=is_rural,
-            coordinates=coordinates,
-        )
-        
-        self.db.save_subscription(subscription)
-        
-        # Send confirmation notification
-        self.notification_service.send_test_notification(subscription)
-        
-        self.logger.info(f"Created subscription: {subscription}")
-        return subscription
-    
-    def update_subscription(
-        self,
-        subscription_id: str,
-        **updates,
-    ) -> Optional[Subscription]:
-        """
-        Update an existing subscription.
-        
-        Args:
-            subscription_id: Subscription ID
-            **updates: Fields to update
-            
-        Returns:
-            Updated Subscription or None if not found
-        """
-        subscription = self.db.get_subscription(subscription_id)
-        if not subscription:
-            return None
-        
-        # Apply updates
-        for key, value in updates.items():
-            if hasattr(subscription, key):
-                setattr(subscription, key, value)
-        
-        subscription.updated_at = __import__('datetime').datetime.now()
-        self.db.save_subscription(subscription)
-        
-        return subscription
-    
-    def delete_subscription(self, subscription_id: str) -> bool:
-        """
-        Delete a subscription.
-        
-        Args:
-            subscription_id: Subscription ID
-            
-        Returns:
-            True if deleted
-        """
-        return self.db.delete_subscription(subscription_id)
-    
-    def get_subscriptions_for_endpoint(self, push_endpoint: str) -> List[Subscription]:
-        """
-        Get all subscriptions for a push endpoint.
-        
-        Args:
-            push_endpoint: Web Push endpoint URL
-            
-        Returns:
-            List of subscriptions
-        """
-        return self.db.get_subscriptions_by_endpoint(push_endpoint)
-    
-    def process_outages(self, outages: List[Outage]) -> Dict[str, int]:
-        """
-        Process outages and send notifications to matching subscriptions.
-        
-        Args:
-            outages: List of outages to process
-            
-        Returns:
-            Statistics dictionary
-        """
+    def process_outages(self, new_outages: List[Outage]) -> Dict[str, int]:
         stats = {
-            "outages_processed": 0,
-            "notifications_sent": 0,
-            "notifications_failed": 0,
-            "already_notified": 0,
+            "processed": len(new_outages),
+            "sent": 0,
+            "failed": 0,
+            "expired_cleaned": 0,
         }
         
-        # Get all active subscriptions
         subscriptions = self.db.get_all_active_subscriptions()
-        self.logger.info(f"Processing {len(outages)} outages against {len(subscriptions)} subscriptions")
-        
-        for outage in outages:
-            stats["outages_processed"] += 1
+        if not subscriptions or not new_outages:
+            return stats
             
-            # Find matching subscriptions
+        for outage in new_outages:
             matches = self.geo_service.find_matching_subscriptions(outage, subscriptions)
             
             for subscription in matches:
-                # Check if already notified
+                # Prevent duplicates
                 if self.db.is_notification_sent(outage.outage_id, subscription.subscription_id):
-                    stats["already_notified"] += 1
                     continue
                 
-                # Send notification
-                success = self.notification_service.send_outage_notification(
-                    subscription,
-                    outage,
-                )
+                status = self.notification_service.send_outage_notification(subscription, outage)
                 
-                # Record the notification attempt
-                self.db.record_notification_sent(
-                    outage.outage_id,
-                    subscription.subscription_id,
-                    success=success,
-                )
-                
-                if success:
-                    stats["notifications_sent"] += 1
+                if status == NotificationStatus.SUCCESS:
+                    stats["sent"] += 1
+                    self.db.record_notification_sent(outage.outage_id, subscription.subscription_id, success=True)
                     subscription.record_notification()
                     self.db.save_subscription(subscription)
+                    
+                elif status == NotificationStatus.EXPIRED:
+                    # FIX: Auto-clean dead subscriptions (e.g., user uninstalled the app / revoked permissions)
+                    self.db.deactivate_subscription(subscription.subscription_id)
+                    stats["expired_cleaned"] += 1
+                    
                 else:
-                    stats["notifications_failed"] += 1
-        
-        self.logger.info(f"Processing complete: {stats}")
+                    stats["failed"] += 1
+                    self.db.record_notification_sent(outage.outage_id, subscription.subscription_id, success=False)
+                    
         return stats
-    
-    def find_outages_for_subscription(
-        self,
-        subscription: Subscription,
-    ) -> List[Outage]:
-        """
-        Find upcoming outages that affect a subscription.
-        
-        Args:
-            subscription: Subscription to check
-            
-        Returns:
-            List of matching outages
-        """
-        upcoming = self.db.get_upcoming_outages()
-        
-        matches = []
-        for outage in upcoming:
-            if self.geo_service.matches(outage, subscription):
-                matches.append(outage)
-        
-        return matches

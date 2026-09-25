@@ -1,3 +1,4 @@
+# src/models/__init__.py
 """Data models package."""
 
 from .outage import Outage

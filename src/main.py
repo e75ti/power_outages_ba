@@ -1,3 +1,4 @@
+# src/main.py
 """Main entry point for the electricity outage scraper application."""
 
 import logging
@@ -10,7 +11,7 @@ import schedule
 from src.scrapers.scraper_manager import ScraperManager
 from src.database.db_manager import DatabaseManager
 from src.services.subscription_service import SubscriptionService
-from src.utils.config import load_config
+from src.config.settings import load_config
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -41,21 +42,23 @@ def run_scrape_job():
         # Scrape all providers
         outages = scraper_manager.scrape_all(parallel=True)
         
-        # Save to database
+        # Save to database (now returns exactly the newly inserted objects)
         save_result = db_manager.save_outages(outages)
         logger.info(f"Database: {save_result['new']} new, {save_result['existing']} existing")
         
-        # Process notifications for new outages
-        if save_result['new'] > 0:
-            # Get only the new outages (those that were just saved)
-            new_outages = [o for o in outages if db_manager.get_outage(o.outage_id)]
+        new_outages = save_result.get('new_objects', [])
+
+        # Process notifications ONLY for new outages
+        if new_outages:
             notification_stats = subscription_service.process_outages(new_outages)
             logger.info(f"Notifications: {notification_stats}")
         
-        # Cleanup old data
-        deleted = db_manager.delete_old_outages(days=30)
-        if deleted > 0:
-            logger.info(f"Cleaned up {deleted} old outages")
+        # Cleanup old data (Outages, Notifications, Geocache)
+        deleted_outages = db_manager.delete_old_outages(days=30)
+        deleted_notifs = db_manager.delete_old_notifications(days=7)
+        deleted_cache = db_manager.delete_old_geocache(days=90)
+
+        logger.info(f"Cleanup: {deleted_outages} outages, {deleted_notifs} notifications, {deleted_cache} geocache entries removed.")
         
         logger.info("=" * 60)
         logger.info("Scrape job completed successfully")
