@@ -24,15 +24,14 @@ class ElektroDobojScraper(BaseScraper):
         })
     
     def scrape(self) -> List[Outage]:
-        """
-        Scrape outage data from Elektro Doboj website.
-        """
         self.logger.info(f"Scraping {self.PROVIDER_NAME}...")
         outages = []
         
         try:
             response = self._get(self.BASE_URL)
-            outages = self.parse(response.text)
+            # FIX: Safely decode bytes to UTF-8 before hunting for the JSON
+            decoded_html = response.content.decode('utf-8', errors='replace')
+            outages = self.parse(decoded_html)
             self.logger.info(f"Found {len(outages)} outages from {self.PROVIDER_NAME} via Map JSON")
             
         except Exception as e:
