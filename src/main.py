@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 
 import schedule
+from pythonjsonlogger.json import JsonFormatter
 
 from src.scrapers.scraper_manager import ScraperManager
 from src.database.db_manager import DatabaseManager
@@ -15,14 +16,21 @@ from src.config.settings import load_config
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=getattr(logging, level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-        ]
-    )
+    """Set up JSON logging configuration for Grafana/Loki integration."""
+    logger = logging.getLogger()
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Clear any default handlers to prevent duplicate logs
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+        
+    handler = logging.StreamHandler(sys.stdout)
+    
+    # This dictates the structure of the JSON payload sent to stdout
+    formatter = JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    
+    logger.addHandler(handler)
 
 
 def run_scrape_job():

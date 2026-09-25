@@ -3,18 +3,21 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Dict, Any
 
 from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Integer, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.exc import IntegrityError
 
 from src.models.outage import Outage
 from src.models.subscription import Subscription
 from src.config.settings import load_config
 
 Base = declarative_base()
+
+def utc_now():
+    """Helper to enforce timezone-aware UTC default timestamps."""
+    return datetime.now(timezone.utc)
 
 class OutageModel(Base):
     __tablename__ = 'outages'
@@ -24,14 +27,14 @@ class OutageModel(Base):
     municipality = Column(String)
     area = Column(Text)
     streets = Column(Text)
-    date_start = Column(DateTime)
-    date_end = Column(DateTime, nullable=True)
+    date_start = Column(DateTime(timezone=True), index=True) # Added Timezone & Index
+    date_end = Column(DateTime(timezone=True), nullable=True)
     time_start = Column(String, nullable=True)
     time_end = Column(String, nullable=True)
     reason = Column(Text)
     facility = Column(String)
     raw_text = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
 
@@ -47,9 +50,9 @@ class SubscriptionModel(Base):
     is_active = Column(Boolean, default=True)
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_notified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    last_notified_at = Column(DateTime(timezone=True), nullable=True)
     notification_count = Column(Integer, default=0)
     provider_preference = Column(Text) # Stored as JSON string
 
@@ -58,7 +61,7 @@ class NotificationSentModel(Base):
     id = Column(String, primary_key=True) # outage_id + "_" + subscription_id
     outage_id = Column(String, nullable=False)
     subscription_id = Column(String, nullable=False)
-    sent_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime(timezone=True), default=utc_now, index=True) # Added Index
     success = Column(Boolean, default=True)
 
 class GeocacheModel(Base):
@@ -67,7 +70,7 @@ class GeocacheModel(Base):
     address = Column(String, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    cached_at = Column(DateTime, default=datetime.utcnow)
+    cached_at = Column(DateTime(timezone=True), default=utc_now, index=True) # Added Index
 
 
 class DatabaseManager:
@@ -85,7 +88,6 @@ class DatabaseManager:
     # ==================== OUTAGE OPERATIONS ====================
     
     def save_outage(self, outage: Outage) -> bool:
-        """Save a single outage. Returns True if newly inserted."""
         with self.Session() as session:
             existing = session.query(OutageModel).filter_by(id=outage.outage_id).first()
             if existing:
@@ -97,7 +99,6 @@ class DatabaseManager:
             return True
 
     def save_outages(self, outages: List[Outage]) -> Dict[str, Any]:
-        """Save multiple outages. Returns stats and a list of new objects."""
         new_count = 0
         existing_count = 0
         new_objects = []
@@ -122,19 +123,19 @@ class DatabaseManager:
             return self._model_to_outage(model) if model else None
 
     def get_recent_outages(self, days: int = 7) -> List[Outage]:
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = utc_now() - timedelta(days=days)
         with self.Session() as session:
             models = session.query(OutageModel).filter(OutageModel.created_at >= cutoff).all()
             return [self._model_to_outage(m) for m in models]
 
     def get_upcoming_outages(self) -> List[Outage]:
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
         with self.Session() as session:
             models = session.query(OutageModel).filter(OutageModel.date_start >= today).all()
             return [self._model_to_outage(m) for m in models]
 
     def delete_old_outages(self, days: int = 30) -> int:
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = utc_now() - timedelta(days=days)
         with self.Session() as session:
             deleted = session.query(OutageModel).filter(OutageModel.date_start < cutoff).delete()
             session.commit()
@@ -202,7 +203,7 @@ class DatabaseManager:
             session.commit()
             
     def delete_old_notifications(self, days: int = 7) -> int:
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = utc_now() - timedelta(days=days)
         with self.Session() as session:
             deleted = session.query(NotificationSentModel).filter(NotificationSentModel.sent_at < cutoff).delete()
             session.commit()
@@ -234,7 +235,7 @@ class DatabaseManager:
                 session.commit()
                 
     def delete_old_geocache(self, days: int = 90) -> int:
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = utc_now() - timedelta(days=days)
         with self.Session() as session:
             deleted = session.query(GeocacheModel).filter(GeocacheModel.cached_at < cutoff).delete()
             session.commit()
