@@ -30,18 +30,18 @@ class ElektroKrajinaScraper(BaseScraper):
         "Šipovo": "/sipovo/?lang=bs",
         "Srbac": "/srbac/?lang=bs",
         
-        # Cyrillic URLs
-        "Banja Luka (Ћ)": "/%D0%B1%D0%B0%D1%9A%D0%B0-3/",
-        "Čelinac (Ћ)": "/%D1%87%D0%B5%D0%BB%D0%B8%D0%BD%D0%B0%D1%86/",
-        "Gradiška (Ћ)": "/%D0%B3%D1%80%D0%B0%D0%B4%D0%B8%D1%88%D0%BA%D0%B0/",
-        "Kozarska Dubica (Ћ)": "/%D0%BA%D0%BE%D0%B7%D0%B0%D1%80%D1%81%D0%BA%D0%B0-%D0%B4%D1%83%D0%B1%D0%B8%D1%86%D0%B0/",
-        "Laktaši (Ћ)": "/%D0%BB%D0%B0%D0%BA%D1%82%D0%B0%D1%88%D0%B8/",
-        "Mrkonjić Grad (Ћ)": "/%D0%BC%D1%80%D0%BA%D0%BE%D1%9A%D0%B8%D1%9B-%D0%B3%D1%80%D0%B0%D0%B4/",
-        "Novi Grad (Ћ)": "/%D0%BD%D0%BE%D0%B2%D0%B8-%D0%B3%D1%80%D0%B0%D0%B4/",
-        "Prijedor (Ћ)": "/%D0%BF%D1%80%D0%B8%D1%98%D0%B5%D0%B4%D0%BE%D1%80/",
-        "Prnjavor (Ћ)": "/%D0%BF%D1%80%D1%9A%D0%B0%D0%B2%D0%BE%D1%80/",
-        "Šipovo (Ћ)": "/sipovo/", # They never changed Sipovo's URL
-        "Srbac (Ћ)": "/%D1%81%D1%80%D0%B1%D0%B0%D1%86/"
+        # Cyrillic URLs natively decoded
+        "Banja Luka (Ћ)": "/бања-3/",
+        "Čelinac (Ћ)": "/челинац/",
+        "Gradiška (Ћ)": "/градишка/",
+        "Kozarska Dubica (Ћ)": "/козарска-дубица/",
+        "Laktaši (Ћ)": "/лакташи/",
+        "Mrkonjić Grad (Ћ)": "/мркоњић-град/",
+        "Novi Grad (Ћ)": "/нови-град/",
+        "Prijedor (Ћ)": "/приједор/",
+        "Prnjavor (Ћ)": "/прњавор/",
+        "Šipovo (Ћ)": "/sipovo/", 
+        "Srbac (Ћ)": "/србац/"
     }
     
     def scrape(self) -> List[Outage]:
