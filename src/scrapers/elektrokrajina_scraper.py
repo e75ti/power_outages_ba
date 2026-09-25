@@ -15,8 +15,9 @@ class ElektroKrajinaScraper(BaseScraper):
     PROVIDER_NAME = "Elektrokrajina"
     BASE_URL = "https://www.elektrokrajina.com"
     
-    # Regional pages
+    # Check both the legacy Latin paths and the new Cyrillic paths
     REGION_URLS = {
+        # Latin URLs
         "Banja Luka": "/banja-luka/?lang=bs",
         "Čelinac": "/celinac/?lang=bs",
         "Gradiška": "/gradiska-isklj/?lang=bs",
@@ -28,21 +29,37 @@ class ElektroKrajinaScraper(BaseScraper):
         "Prnjavor": "/prnjavor/?lang=bs",
         "Šipovo": "/sipovo/?lang=bs",
         "Srbac": "/srbac/?lang=bs",
+        
+        # Cyrillic URLs
+        "Banja Luka (Ћ)": "/%D0%B1%D0%B0%D1%9A%D0%B0-3/",
+        "Čelinac (Ћ)": "/%D1%87%D0%B5%D0%BB%D0%B8%D0%BD%D0%B0%D1%86/",
+        "Gradiška (Ћ)": "/%D0%B3%D1%80%D0%B0%D0%B4%D0%B8%D1%88%D0%BA%D0%B0/",
+        "Kozarska Dubica (Ћ)": "/%D0%BA%D0%BE%D0%B7%D0%B0%D1%80%D1%81%D0%BA%D0%B0-%D0%B4%D1%83%D0%B1%D0%B8%D1%86%D0%B0/",
+        "Laktaši (Ћ)": "/%D0%BB%D0%B0%D0%BA%D1%82%D0%B0%D1%88%D0%B8/",
+        "Mrkonjić Grad (Ћ)": "/%D0%BC%D1%80%D0%BA%D0%BE%D1%9A%D0%B8%D1%9B-%D0%B3%D1%80%D0%B0%D0%B4/",
+        "Novi Grad (Ћ)": "/%D0%BD%D0%BE%D0%B2%D0%B8-%D0%B3%D1%80%D0%B0%D0%B4/",
+        "Prijedor (Ћ)": "/%D0%BF%D1%80%D0%B8%D1%98%D0%B5%D0%B4%D0%BE%D1%80/",
+        "Prnjavor (Ћ)": "/%D0%BF%D1%80%D1%9A%D0%B0%D0%B2%D0%BE%D1%80/",
+        "Šipovo (Ћ)": "/sipovo/", # They never changed Sipovo's URL
+        "Srbac (Ћ)": "/%D1%81%D1%80%D0%B1%D0%B0%D1%86/"
     }
     
     def scrape(self) -> List[Outage]:
         self.logger.info(f"Scraping {self.PROVIDER_NAME}...")
         outages = []
         
-        for region, url_path in self.REGION_URLS.items():
+        for region_key, url_path in self.REGION_URLS.items():
             try:
-                self.logger.debug(f"Fetching {region}...")
+                # Strip the Cyrillic marker for clean database insertion
+                clean_region = region_key.replace(" (Ћ)", "")
+                
+                self.logger.debug(f"Fetching {region_key}...")
                 url = f"{self.BASE_URL}{url_path}"
-                region_outages = self._fetch_region_outages(url, region)
+                region_outages = self._fetch_region_outages(url, clean_region)
                 outages.extend(region_outages)
                 self._rate_limit(0.3)
             except Exception as e:
-                self.logger.warning(f"Error fetching {region}: {e}")
+                self.logger.warning(f"Error fetching {region_key}: {e}")
                 continue
         
         self.logger.info(f"Found {len(outages)} outages from {self.PROVIDER_NAME}")
@@ -68,8 +85,8 @@ class ElektroKrajinaScraper(BaseScraper):
     
     def _parse_outage_table(self, table, region: str) -> Optional[Outage]:
         """
-        Dynamically parse an outage table by hunting for keywords, 
-        ignoring strict row indexing so it won't break on HTML changes.
+        Dynamically parse an outage table by hunting for keywords in BOTH
+        Latin and Cyrillic, ignoring strict row indexing.
         """
         facility = ""
         date_str = ""
@@ -85,23 +102,22 @@ class ElektroKrajinaScraper(BaseScraper):
                 if not cells:
                     continue
                 
-                # Clean up the text for all cells in the row
                 cell_texts = [self._clean_text(c.get_text()) for c in cells]
                 first_cell_lower = cell_texts[0].lower()
                 
-                # Hunt for specific labels
-                if "elektroenergetski" in first_cell_lower and len(cell_texts) >= 2:
+                # Hunt for specific labels in both alphabets
+                if ("elektroenergetski" in first_cell_lower or "електроенергетски" in first_cell_lower) and len(cell_texts) >= 2:
                     facility = cell_texts[1]
-                elif "razlog" in first_cell_lower and len(cell_texts) >= 2:
+                elif ("razlog" in first_cell_lower or "разлог" in first_cell_lower) and len(cell_texts) >= 2:
                     reason = cell_texts[1]
-                elif ("naselja" in first_cell_lower or "ulice" in first_cell_lower) and len(cell_texts) >= 2:
+                elif ("naselja" in first_cell_lower or "ulice" in first_cell_lower or "насеља" in first_cell_lower or "улице" in first_cell_lower) and len(cell_texts) >= 2:
                     affected_areas = cell_texts[1]
                 elif len(cell_texts) >= 4:
-                    # Look for a date string in the first cell (e.g. 06.07.2026.)
+                    # Look for a date string in the first cell (e.g. 06.07.2026. or 25.09.2026)
                     if re.search(r'\d{1,2}[./]\d{1,2}[./]\d{2,4}', cell_texts[0]):
                         date_str = cell_texts[0]
-                        time_start = cell_texts[2]  # Vrijeme isključenja
-                        time_end = cell_texts[3]    # Vrijeme uključenja
+                        time_start = cell_texts[2]  # Vrijeme isključenja / Вријеме искључења
+                        time_end = cell_texts[3]    # Vrijeme uključenja / Вријеме укључења
 
             # If we didn't extract the bare minimum, this isn't a valid outage table
             if not facility and not affected_areas:
@@ -133,7 +149,6 @@ class ElektroKrajinaScraper(BaseScraper):
             return None
     
     def parse(self, html: str) -> List[Outage]:
-        """Fallback for base compatibility."""
         soup = BeautifulSoup(html, 'html.parser')
         outages = []
         tables = soup.find_all('table')
