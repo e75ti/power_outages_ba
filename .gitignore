@@ -1,0 +1,14 @@
+# .gitignore
+
+# Ignore local environment variables (never push secrets!)
+.env
+
+# Ignore local Docker overrides
+compose.override.yaml
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.pyc
+venv/
+logs/

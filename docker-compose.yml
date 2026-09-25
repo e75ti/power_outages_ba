@@ -1,28 +1,48 @@
-name: outage-scraper-stack
+# compose.yaml (Committed to GitHub)
+name: outage-scraper
 
 services:
   scraper-app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: outage-scraper
     restart: unless-stopped
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+        required: false
     environment:
-      # Connects directly to the existing gras_postgres container
-      - DATABASE_URI=postgresql://gras:password@gras_postgres:5432/outage_db
-      - LOG_LEVEL=INFO
-      - SCRAPE_INTERVAL_MINUTES=30
-      - ENABLE_GEO_MATCHING=true
-    networks:
-      - shared_db_network
+      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SCRAPE_INTERVAL_MINUTES=${SCRAPE_INTERVAL_MINUTES:-30}
+      - ENABLE_GEO_MATCHING=${ENABLE_GEO_MATCHING:-true}
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-networks:
-  shared_db_network:
-    # This tells Docker this network already exists and is managed elsewhere
-    name: gras_tracker_default
-    external: true
+  postgres-db:
+    image: postgres:18-alpine
+    container_name: outage-postgres
+    restart: unless-stopped
+    profiles:
+      - local-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outage_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outage_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-outage_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - outage_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outage_user} -d ${POSTGRES_DB:-outage_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  outage_pgdata:
