@@ -15,9 +15,9 @@ class ElektroKrajinaScraper(BaseScraper):
     PROVIDER_NAME = "Elektrokrajina"
     BASE_URL = "https://www.elektrokrajina.com"
     
-    # Check both the legacy Latin paths and the new Cyrillic paths
+    # Check both the legacy Latin paths and the active Cyrillic paths
     REGION_URLS = {
-        # Latin URLs
+        # Latin URLs (Legacy)
         "Banja Luka": "/banja-luka/?lang=bs",
         "Čelinac": "/celinac/?lang=bs",
         "Gradiška": "/gradiska-isklj/?lang=bs",
@@ -30,10 +30,10 @@ class ElektroKrajinaScraper(BaseScraper):
         "Šipovo": "/sipovo/?lang=bs",
         "Srbac": "/srbac/?lang=bs",
         
-        # Cyrillic URLs natively decoded
+        # Active Cyrillic URLs (Notice the lazy Latin slugs they left in!)
         "Banja Luka (Ћ)": "/бања-3/",
-        "Čelinac (Ћ)": "/челинац/",
-        "Gradiška (Ћ)": "/градишка/",
+        "Čelinac (Ћ)": "/celinac/", 
+        "Gradiška (Ћ)": "/gradiska-isklj/",
         "Kozarska Dubica (Ћ)": "/козарска-дубица/",
         "Laktaši (Ћ)": "/лакташи/",
         "Mrkonjić Grad (Ћ)": "/мркоњић-град/",
@@ -68,13 +68,15 @@ class ElektroKrajinaScraper(BaseScraper):
     def _fetch_region_outages(self, url: str, region: str) -> List[Outage]:
         response = self._get(url)
         
-        # FIX: Decode bytes manually to guarantee UTF-8 Bosnian characters
+        # If it's a 404, parsing it will just yield 0 tables anyway, which is safe
         decoded_html = response.content.decode('utf-8', errors='replace')
         soup = BeautifulSoup(decoded_html, 'html.parser')
         
         outages = []
         tables = soup.find_all('table')
-        self.logger.debug(f"Found {len(tables)} tables in {region}")
+        
+        if tables:
+            self.logger.debug(f"Found {len(tables)} tables in {region}")
         
         for table in tables:
             outage = self._parse_outage_table(table, region)
@@ -105,7 +107,6 @@ class ElektroKrajinaScraper(BaseScraper):
                 cell_texts = [self._clean_text(c.get_text()) for c in cells]
                 first_cell_lower = cell_texts[0].lower()
                 
-                # Hunt for specific labels in both alphabets
                 if ("elektroenergetski" in first_cell_lower or "електроенергетски" in first_cell_lower) and len(cell_texts) >= 2:
                     facility = cell_texts[1]
                 elif ("razlog" in first_cell_lower or "разлог" in first_cell_lower) and len(cell_texts) >= 2:
@@ -113,13 +114,11 @@ class ElektroKrajinaScraper(BaseScraper):
                 elif ("naselja" in first_cell_lower or "ulice" in first_cell_lower or "насеља" in first_cell_lower or "улице" in first_cell_lower) and len(cell_texts) >= 2:
                     affected_areas = cell_texts[1]
                 elif len(cell_texts) >= 4:
-                    # Look for a date string in the first cell (e.g. 06.07.2026. or 25.09.2026)
                     if re.search(r'\d{1,2}[./]\d{1,2}[./]\d{2,4}', cell_texts[0]):
                         date_str = cell_texts[0]
-                        time_start = cell_texts[2]  # Vrijeme isključenja / Вријеме искључења
-                        time_end = cell_texts[3]    # Vrijeme uključenja / Вријеме укључења
+                        time_start = cell_texts[2]  
+                        time_end = cell_texts[3]    
 
-            # If we didn't extract the bare minimum, this isn't a valid outage table
             if not facility and not affected_areas:
                 return None
             
@@ -163,7 +162,6 @@ class ElektroKrajinaScraper(BaseScraper):
             return None
         
         date_str = date_str.strip().rstrip('.')
-        
         formats = ["%d.%m.%Y", "%d.%m.%Y.", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"]
         for fmt in formats:
             try:
