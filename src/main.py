@@ -62,13 +62,16 @@ def run_scrape_job():
             notification_stats = subscription_service.process_outages(new_outages)
             logger.info(f"Notifications: {notification_stats}")
         
-        # Cleanup old data (Outages, Notifications, Geocache)
-        deleted_outages = db_manager.delete_old_outages(days=30)
-        deleted_notifs = db_manager.delete_old_notifications(days=7)
-        deleted_cache = db_manager.delete_old_geocache(days=90)
+# ----- DISABLED CLEANING UP OLD DATA , HISTORICAL RETENTION PREFERRED -----
 
-        logger.info(f"Cleanup: {deleted_outages} outages, {deleted_notifs} notifications, {deleted_cache} geocache entries removed.")
-        
+        # Cleanup old data (Outages, Notifications, Geocache)
+        #deleted_outages = db_manager.delete_old_outages(days=30)
+        #deleted_notifs = db_manager.delete_old_notifications(days=7)
+        #deleted_cache = db_manager.delete_old_geocache(days=90)
+
+        #logger.info(f"Cleanup: {deleted_outages} outages, {deleted_notifs} notifications, {deleted_cache} geocache entries removed.")
+        logger.info("Cleanup: Skipped (Historical data retention set to INFINITE)")
+
         logger.info("=" * 60)
         logger.info("Scrape job completed successfully")
         logger.info("=" * 60)
