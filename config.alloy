@@ -1,0 +1,40 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// 1. Discover all Docker containers
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// 2. Filter to keep ONLY the outage-scraper
+discovery.relabel "scraper" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/outage-scraper"
+    action        = "keep"
+  }
+  
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+// 3. Read the logs from the filtered container
+loki.source.docker "scraper_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.scraper.output
+  forward_to = [loki.write.local.receiver]
+}
+
+// 4. Ship them to your local Loki database
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
