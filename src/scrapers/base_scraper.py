@@ -18,7 +18,7 @@ except ImportError:
     CLOUDSCRAPER_AVAILABLE = False
 
 from src.models.outage import Outage
-
+from src.metrics import NETWORK_ERRORS
 
 class SSLAdapter(HTTPAdapter):
     """
@@ -191,6 +191,7 @@ class BaseScraper(ABC):
                     time.sleep(1)
                     
             except requests.exceptions.RequestException as e:
+                NETWORK_ERRORS.labels(provider=self.PROVIDER_NAME).inc()
                 self.logger.warning(f"Request failed (attempt {attempt + 1}): {e}")
                 last_error = e
                 

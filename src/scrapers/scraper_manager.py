@@ -12,6 +12,7 @@ from src.scrapers.elektrokrajina_scraper import ElektroKrajinaScraper
 from src.scrapers.elektrodoboj_scraper import ElektroDobojScraper
 from src.scrapers.elektrobijeljina_scraper import ElektroBijeljinaScraper
 
+from src.metrics import OUTAGES_FOUND, SCRAPE_DURATION
 
 class ScraperManager:
     """
@@ -117,15 +118,21 @@ class ScraperManager:
         errors = []
         
         for name, scraper in self.scrapers.items():
+            start_time = time.time()
             try:
                 self.logger.info(f"Scraping {name}...")
                 outages = scraper.scrape()
                 all_outages.extend(outages)
                 self.logger.info(f"✅ {name}: {len(outages)} outages found")
+                OUTAGES_FOUND.labels(provider=scraper.PROVIDER_NAME).set(len(outages))
             except Exception as e:
                 self.logger.error(f"❌ {name}: Scraping failed - {e}")
                 errors.append((name, str(e)))
-        
+            finally:
+                # Record exactly how long it took in the Histogram
+                duration = time.time() - start_time
+                SCRAPE_DURATION.labels(provider=scraper.PROVIDER_NAME).observe(duration)
+
         self.logger.info(f"Total outages collected: {len(all_outages)}")
         if errors:
             self.logger.warning(f"Failed scrapers: {[e[0] for e in errors]}")

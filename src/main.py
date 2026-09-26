@@ -14,6 +14,7 @@ from src.database.db_manager import DatabaseManager
 from src.services.subscription_service import SubscriptionService
 from src.config.settings import load_config
 
+from prometheus_client import start_http_server
 
 def setup_logging(level: str = "INFO") -> None:
     """Set up JSON logging configuration for Grafana/Loki integration."""
@@ -78,6 +79,11 @@ def run_scrape_job():
 
 def main():
     """Main entry point."""
+
+    # Prometheus
+    start_http_server(8000)
+    logger.info("Prometheus metrics server started on port 8000")
+
     # Load configuration
     config = load_config()
     
