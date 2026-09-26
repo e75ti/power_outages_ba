@@ -1,0 +1,33 @@
+---
+- hosts: scrapers
+  become: yes
+  vars:
+    app_dir: /opt/electricity-outage-scraper
+  tasks:
+    - name: Ensure project directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy project files to target server
+      copy:
+        src: "../"
+        dest: "{{ app_dir }}"
+        exclude:
+          - venv
+          - .git
+          - .env
+
+    - name: Create .env from example if it doesn't exist
+      copy:
+        src: "{{ app_dir }}/env.example"
+        dest: "{{ app_dir }}/.env"
+        remote_src: yes
+        force: no
+
+    - name: Run Docker Compose up
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+        build: always
