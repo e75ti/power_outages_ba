@@ -85,33 +85,47 @@ class ScraperManager:
     
     def _scrape_parallel(self) -> List[Outage]:
         """Run scrapers in parallel using ThreadPoolExecutor."""
+        import time  # Ensure time is imported for metrics
+        
         all_outages = []
         errors = []
+        start_times = {}
         
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all scraping tasks
-            future_to_name = {
-                executor.submit(scraper.scrape): name
-                for name, scraper in self.scrapers.items()
-            }
-            
+            # Submit all scraping tasks and record their start times
+            future_to_name = {}
+            for name, scraper in self.scrapers.items():
+                start_times[name] = time.time()
+                future_to_name[executor.submit(scraper.scrape)] = name
+                
             # Collect results as they complete
             for future in as_completed(future_to_name):
                 name = future_to_name[future]
+                scraper = self.scrapers[name]
+                
                 try:
                     outages = future.result()
                     all_outages.extend(outages)
                     self.logger.info(f"✅ {name}: {len(outages)} outages found")
+                    
+                    # --- SRE METRICS: Outages Found ---
+                    OUTAGES_FOUND.labels(provider=scraper.PROVIDER_NAME).set(len(outages))
+                    
                 except Exception as e:
                     self.logger.error(f"❌ {name}: Scraping failed - {e}")
                     errors.append((name, str(e)))
-        
+                    
+                finally:
+                    # --- SRE METRICS: Execution Duration ---
+                    duration = time.time() - start_times[name]
+                    SCRAPE_DURATION.labels(provider=scraper.PROVIDER_NAME).observe(duration)
+                    
         self.logger.info(f"Total outages collected: {len(all_outages)}")
         if errors:
             self.logger.warning(f"Failed scrapers: {[e[0] for e in errors]}")
-        
+            
         return all_outages
-    
+
     def _scrape_sequential(self) -> List[Outage]:
         """Run scrapers sequentially."""
         all_outages = []
