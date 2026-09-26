@@ -80,10 +80,6 @@ def run_scrape_job():
 def main():
     """Main entry point."""
 
-    # Prometheus
-    start_http_server(8000)
-    logger.info("Prometheus metrics server started on port 8000")
-
     # Load configuration
     config = load_config()
     
@@ -97,8 +93,12 @@ def main():
     logger.info("=" * 60)
     
     # Get scrape interval
-    interval_minutes = config.get("scrape_interval_minutes", 30)
-    
+    interval_minutes = config.get("scrape_interval_minutes", 120)
+
+    # Prometheus
+    start_http_server(8000, addr="0.0.0.0")
+    logger.info("Prometheus metrics server started on port 8000")
+
     # Run immediately on startup
     run_scrape_job()
     
