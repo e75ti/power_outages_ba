@@ -48,7 +48,7 @@ def run_scrape_job():
         scraper_manager = ScraperManager()
         db_manager = DatabaseManager()
         subscription_service = SubscriptionService(db_manager)
-        geocoder = OutageGeocoder()
+        geocoder = OutageGeocoder(db_manager)
         
         # Scrape all providers
         outages = scraper_manager.scrape_all(parallel=True)

@@ -1,49 +1,62 @@
 import logging
-import time
 from typing import Tuple, Optional
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+from geopy.extra.rate_limiter import RateLimiter
 
 class OutageGeocoder:
-    """Geocodes municipality and area text into GPS coordinates."""
+    """Geocodes municipality and area text into GPS coordinates using Postgres caching."""
     
-    def __init__(self, user_agent: str = "electricity-outage-scraper"):
+    def __init__(self, db_manager, user_email: str = "admin@example.com"):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.db_manager = db_manager
+        
+        # Respectful User-Agent as per OSM Nominatim Policy
+        user_agent = f"electricity-outage-scraper/1.0 (contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent)
         
-        # Cache to prevent spamming the API for the same towns
-        self._cache = {}
+        # Strict Rate Limiting (15s delay = 4 requests per minute for bulk jobs)
+        self.geocode_limited = RateLimiter(self.geolocator.geocode, min_delay_seconds=15)
 
     def get_coordinates(self, municipality: str, area: str) -> Tuple[Optional[float], Optional[float]]:
-        """
-        Takes a municipality and area, returns (latitude, longitude).
-        """
-        # Clean up the search string
+        """Takes a municipality and area, returns (latitude, longitude)."""
         search_query = f"{area}, {municipality}, Bosnia and Herzegovina"
         backup_query = f"{municipality}, Bosnia and Herzegovina"
 
-        if search_query in self._cache:
-            return self._cache[search_query]
+        # 1. Check PostgreSQL Cache FIRST
+        cached = self.db_manager.get_cached_coordinates(search_query)
+        if cached:
+            # If the database returns (-999.0, -999.0), it's a negative cache hit
+            if cached[0] == -999.0:
+                return None, None
+            return cached
 
         try:
-            # Respect Nominatim's strict rate limit (1 request per second)
-            time.sleep(1.1) 
+            self.logger.info(f"Nominatim API Call (15s delay) for: {search_query}")
+            location = self.geocode_limited(search_query, timeout=10)
             
-            # 1. Try exact area first
-            location = self.geolocator.geocode(search_query, timeout=10)
-            
-            # 2. Fallback to just the municipality/city if specific street fails
             if not location:
-                self.logger.debug(f"Could not find exact area '{area}', falling back to '{municipality}'")
-                time.sleep(1.1)
-                location = self.geolocator.geocode(backup_query, timeout=10)
+                self.logger.debug(f"Exact area failed, falling back to: {backup_query}")
+                
+                # Check cache for backup query before hitting API again
+                cached_backup = self.db_manager.get_cached_coordinates(backup_query)
+                if cached_backup:
+                    if cached_backup[0] != -999.0:
+                        self.db_manager.cache_coordinates(search_query, cached_backup[0], cached_backup[1])
+                        return cached_backup
+                else:
+                    self.logger.info(f"Nominatim API Call (15s delay) for fallback: {backup_query}")
+                    location = self.geocode_limited(backup_query, timeout=10)
 
             if location:
-                coords = (location.latitude, location.longitude)
-                self._cache[search_query] = coords
-                return coords
+                # Success! Save to Postgres
+                self.db_manager.cache_coordinates(search_query, location.latitude, location.longitude)
+                self.db_manager.cache_coordinates(backup_query, location.latitude, location.longitude)
+                return (location.latitude, location.longitude)
                 
             self.logger.warning(f"Could not geocode: {search_query}")
+            # NEGATIVE CACHING: Save fake coordinates (-999, -999) so we don't ask API again!
+            self.db_manager.cache_coordinates(search_query, -999.0, -999.0) 
             return None, None
 
         except (GeocoderTimedOut, GeocoderServiceError) as e:
