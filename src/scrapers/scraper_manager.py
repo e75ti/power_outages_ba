@@ -11,6 +11,7 @@ from src.scrapers.ephzhb_scraper import EPHZHBScraper
 from src.scrapers.elektrokrajina_scraper import ElektroKrajinaScraper
 from src.scrapers.elektrodoboj_scraper import ElektroDobojScraper
 from src.scrapers.elektrobijeljina_scraper import ElektroBijeljinaScraper
+from src.scrapers.elektropale_scraper import ElektroPaleScraper
 
 from src.metrics import OUTAGES_FOUND, SCRAPE_DURATION
 
@@ -29,6 +30,7 @@ class ScraperManager:
         "elektrokrajina": ElektroKrajinaScraper,
         "elektrodoboj": ElektroDobojScraper,
         "elektrobijeljina": ElektroBijeljinaScraper,
+        "elektropale": ElektroPaleScraper,
     }
     
     def __init__(
