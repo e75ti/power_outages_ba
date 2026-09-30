@@ -7,6 +7,7 @@ from .elektrokrajina_scraper import ElektroKrajinaScraper
 from .elektrodoboj_scraper import ElektroDobojScraper
 from .elektrobijeljina_scraper import ElektroBijeljinaScraper
 from .elektropale_scraper import ElektroPaleScraper
+from .elektrohercegovina_scraper import ElektroHercegovinaScraper
 from .scraper_manager import ScraperManager
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     'ElektroDobojScraper',
     'ElektroBijeljinaScraper',
     'ElektroPaleScraper',
+    'ElektroHercegovinaScraper',
     'ScraperManager',
 ]

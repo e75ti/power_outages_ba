@@ -1,100 +1,110 @@
 import re
-import traceback
 from datetime import datetime
+from typing import List
 from bs4 import BeautifulSoup
-from src.scrapers.base import BaseScraper
-from src.models import Outage
+
+from src.scrapers.base_scraper import BaseScraper
+from src.models.outage import Outage
 
 class ElektroPaleScraper(BaseScraper):
-    name = "elektropale"
-    base_url = "https://www.edbpale.com/planirana-iskljucenja/"
+    """Scraper for Elektro Pale planned outages."""
+    
+    PROVIDER_NAME = "Elektro Pale"
+    BASE_URL = "https://www.edbpale.com/planirana-iskljucenja/"
 
-    def scrape(self):
+    def scrape(self) -> List[Outage]:
         outages = []
         pages_to_scrape = 2  # Gledamo prve 2 stranice za aktuelna isključenja
         
         for page in range(1, pages_to_scrape + 1):
-            url = self.base_url if page == 1 else f"{self.base_url}page/{page}/"
+            url = self.BASE_URL if page == 1 else f"{self.BASE_URL}page/{page}/"
             
             try:
                 self.logger.info(f"Scraping Elektro Pale - Page {page}...")
-                response = self.session.get(url, timeout=self.timeout)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, 'html.parser')
+                # Koristimo _get iz BaseScrapera koji hendla retries i SSL
+                response = self._get(url)
                 
-                # Svi članci su unutar article taga sa klasom 'entry-box'
-                articles = soup.find_all('article', class_='entry-box')
+                # Šaljemo HTML u obaveznu parse() metodu
+                page_outages = self.parse(response.text)
                 
-                if not articles:
-                    self.logger.info(f"Nema više članaka na stranici {page}.")
+                if not page_outages:
+                    self.logger.info(f"No more outage reports on page {page}.")
                     break
                     
-                for article in articles:
-                    try:
-                        # 1. Naslov
-                        title_el = article.find('h1', class_='entry-title')
-                        if not title_el:
-                            continue
-                        title = title_el.text.strip()
-                        
-                        # 2. Link
-                        link_el = article.find('div', class_='entry-header').find('a')
-                        link = link_el['href'] if link_el else self.base_url
-                        
-                        # 3. Tekst obavještenja (Summary)
-                        desc_el = article.find('div', class_='entry-summary')
-                        description = desc_el.text.strip() if desc_el else ""
-                        
-                        # 4. Grad / Regija (iz kategorije)
-                        cat_el = article.find('li', class_='entry-catagory')
-                        region = "Pale (Nepoznato)"
-                        if cat_el:
-                            # Može biti više gradova odjednom (npr. Istočna Ilidža, Istočno Novo Sarajevo)
-                            region = ", ".join([a.text.strip() for a in cat_el.find_all('a')])
-                            
-                        # 5. Izvlačenje datuma i vremena pomoću Regex-a iz teksta
-                        # Traži format tipa: 02.10.2026 ili 24.9.2024
-                        date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', description)
-                        # Traži format tipa: од 09:00 до 17:00
-                        time_match = re.search(r'од\s*(\d{1,2}:\d{2})\s*до\s*(\d{1,2}:\d{2})', description)
-                        
-                        start_time = None
-                        end_time = None
-                        
-                        if date_match and time_match:
-                            date_str = date_match.group(1)
-                            start_str = time_match.group(1)
-                            end_str = time_match.group(2)
-                            
-                            try:
-                                start_time = datetime.strptime(f"{date_str} {start_str}", "%d.%m.%Y %H:%M")
-                                end_time = datetime.strptime(f"{date_str} {end_str}", "%d.%m.%Y %H:%M")
-                            except ValueError:
-                                pass
-                        
-                        # Fallback: Ako Regex ne uspije naći datum (rijetko), koristi trenutno vrijeme
-                        if not start_time:
-                            start_time = datetime.now()
-                        if not end_time:
-                            end_time = start_time
-                            
-                        # Kreiranje Outage objekta
-                        outage = Outage(
-                            title=title,
-                            description=description,
-                            region=region,
-                            start_time=start_time,
-                            end_time=end_time,
-                            source_url=link,
-                            provider=self.name
-                        )
-                        outages.append(outage)
-                        
-                    except Exception as e:
-                        self.logger.warning(f"Greška pri parsiranju članka na Elektro Pale: {e}")
-                        
-            except Exception as e:
-                self.logger.error(f"Greška pri dohvaćanju stranice {page} Elektro Pale: {e}")
+                outages.extend(page_outages)
+                self._rate_limit(0.5)  # Dobra praksa, pauza između stranica
                 
-        self.logger.info(f"Pronađeno {len(outages)} isključenja sa Elektro Pale.")
+            except Exception as e:
+                self.logger.error(f"Error while getting page {page} Elektro Pale: {e}")
+                
+        self.logger.info(f"Found {len(outages)} outages in Elektro Pale.")
+        return outages
+
+    def parse(self, html: str) -> List[Outage]:
+        outages = []
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        articles = soup.find_all('article', class_='entry-box')
+        
+        for article in articles:
+            try:
+                # 1. Title
+                title_el = article.find('h1', class_='entry-title')
+                if not title_el:
+                    continue
+                title = title_el.text.strip()
+                
+                # 2. Text of notification (Summary)
+                desc_el = article.find('div', class_='entry-summary')
+                description = desc_el.text.strip() if desc_el else ""
+                
+                # 3. City / Region (from category)
+                cat_el = article.find('li', class_='entry-catagory')
+                region = "Pale"
+                if cat_el:
+                    region = ", ".join([a.text.strip() for a in cat_el.find_all('a')])
+                    
+                # 4. Time and date of outage
+                date_match = re.search(r'(\d{1,2}\.\d{1,2}\.\d{4})', description)
+                time_match = re.search(r'од\s*(\d{1,2}:\d{2})\s*до\s*(\d{1,2}:\d{2})', description)
+                
+                date_start = None
+                time_start = None
+                time_end = None
+                
+                if date_match:
+                    try:
+                        date_start = datetime.strptime(date_match.group(1), "%d.%m.%Y")
+                    except ValueError:
+                        date_start = datetime.now()
+                else:
+                    date_start = datetime.now()
+                    
+                if time_match:
+                    time_start = time_match.group(1)
+                    time_end = time_match.group(2)
+                
+                # Clean up the title to use as the "area"
+                area = title
+                if "10 kV" in area:
+                    area = area.split("воду")[-1].strip()
+                    
+                # Create Outage using YOUR correct model fields!
+                outage = Outage(
+                    provider=self.PROVIDER_NAME,
+                    region="Pale",
+                    municipality=region,
+                    area=area,
+                    streets=title, 
+                    date_start=date_start,
+                    time_start=time_start,
+                    time_end=time_end,
+                    reason="Planirani radovi",
+                    raw_text=description
+                )
+                outages.append(outage)
+                
+            except Exception as e:
+                self.logger.warning(f"Greška pri parsiranju članka na Elektro Pale: {e}")
+                
         return outages
