@@ -33,22 +33,22 @@ class ElektroHercegovinaScraper(BaseScraper):
             
             # Sortiramo unazad da prvo gledamo najveće ID-jeve (najnovije)
             sorted_links = sorted(list(article_links), reverse=True)
-            self.logger.info(f"Pronađeno {len(sorted_links)} linkova. Skeniram zadnjih 10...")
+            self.logger.info(f"Found {len(sorted_links)} links. Scanning last 20...")
             
             # Ograničavamo na zadnjih 10 da ne spamamo server
-            for url in sorted_links[:10]:
+            for url in sorted_links[:20]:
                 try:
                     article_resp = self._get(url)
                     page_outages = self.parse(article_resp.text, url)
                     outages.extend(page_outages)
                     self._rate_limit(0.5)
                 except Exception as e:
-                    self.logger.error(f"Greška pri dohvaćanju objave {url}: {e}")
+                    self.logger.error(f"Error while getting link {url}: {e}")
                     
         except Exception as e:
-            self.logger.error(f"Greška pri dohvaćanju glavne stranice {self.PROVIDER_NAME}: {e}")
+            self.logger.error(f"Error while getting main page {self.PROVIDER_NAME}: {e}")
             
-        self.logger.info(f"Pronađeno {len(outages)} isključenja sa {self.PROVIDER_NAME}.")
+        self.logger.info(f"Found {len(outages)} outages with {self.PROVIDER_NAME}.")
         return outages
 
     def parse(self, html: str, source_url: str = "") -> List[Outage]:
@@ -129,6 +129,6 @@ class ElektroHercegovinaScraper(BaseScraper):
             outages.append(outage)
             
         except Exception as e:
-            self.logger.warning(f"Greška pri parsiranju teksta na Elektro Hercegovina: {e}")
+            self.logger.warning(f"Error while parsing text at Elektro Hercegovina: {e}")
             
         return outages
