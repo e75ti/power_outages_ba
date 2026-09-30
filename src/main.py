@@ -9,6 +9,7 @@ from datetime import datetime
 import schedule
 from pythonjsonlogger.json import JsonFormatter
 
+from src.geocoder import OutageGeocoder
 from src.scrapers.scraper_manager import ScraperManager
 from src.database.db_manager import DatabaseManager
 from src.services.subscription_service import SubscriptionService
@@ -47,10 +48,21 @@ def run_scrape_job():
         scraper_manager = ScraperManager()
         db_manager = DatabaseManager()
         subscription_service = SubscriptionService(db_manager)
+        geocoder = OutageGeocoder()
         
         # Scrape all providers
         outages = scraper_manager.scrape_all(parallel=True)
         
+        # Geocode
+
+        logger.info("Geocoding outage locations for the map...")
+        for outage in outages:
+            # Skip if the scraper (like Doboj) already provided exact coordinates
+            if not getattr(outage, 'coordinates', None):
+                lat, lon = geocoder.get_coordinates(outage.municipality, outage.area)
+                if lat and lon:
+                    outage.coordinates = (lat, lon)
+
         # Save to database (now returns exactly the newly inserted objects)
         save_result = db_manager.save_outages(outages)
         logger.info(f"Database: {save_result['new']} new, {save_result['existing']} existing")
