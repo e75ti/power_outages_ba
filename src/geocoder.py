@@ -12,11 +12,15 @@ class OutageGeocoder:
         self.db_manager = db_manager
         
         # Respectful User-Agent as per OSM Nominatim Policy
-        user_agent = f"electricity-outage-scraper/1.0 (contact: {user_email})"
+        user_agent = f"electricity-outage-scanner/1.0"
         self.geolocator = Nominatim(user_agent=user_agent)
         
         # Strict Rate Limiting (15s delay = 4 requests per minute for bulk jobs)
-        self.geocode_limited = RateLimiter(self.geolocator.geocode, min_delay_seconds=15)
+        self.geocode_limited = RateLimiter(
+            self.geolocator.geocode,
+            min_delay_seconds=15,
+            error_wait_seconds=15
+        )
 
     def get_coordinates(self, municipality: str, area: str) -> Tuple[Optional[float], Optional[float]]:
         """Takes a municipality and area, returns (latitude, longitude)."""
