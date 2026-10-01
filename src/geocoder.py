@@ -18,7 +18,8 @@ class OutageGeocoder:
         config = load_config()
         # Traži GEOLOCATOR_EMAIL u config-u, a ako ga nema, koristi default
         user_email = config.get("GEOLOCATOR_EMAIL", "outage.pipeline.support@proton.me")
-        
+        # Tell me what email
+        self.logger.info(f"Initialized Nominatim Geocoder with email: {user_email}")
         # OSM-compliant User-Agent
         user_agent = f"ElectricityOutageScraper/2.0 (BiH Infrastructure Monitor; contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent)
