@@ -19,6 +19,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SCRAPE_INTERVAL_MINUTES=${SCRAPE_INTERVAL_MINUTES:-30}
       - ENABLE_GEO_MATCHING=${ENABLE_GEO_MATCHING:-true}
+      - GEOLOCATOR_EMAIL=${GEOLOCATOR_EMAIL}
     logging:
       driver: "json-file"
       options:

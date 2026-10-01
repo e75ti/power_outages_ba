@@ -30,7 +30,8 @@ def load_config() -> Dict[str, Any]:
         "nominatim_user_agent": os.getenv("NOMINATIM_USER_AGENT", "electricity-outage-scraper-ba"),
         "enable_geo_matching": os.getenv("ENABLE_GEO_MATCHING", "true").lower() == "true",
         "geo_match_radius_km": float(os.getenv("GEO_MATCH_RADIUS_KM", "5.0")),
-        
+        "geolocator_email": os.getenv("GEOLOCATOR_EMAIL"),
+
         # Logging
         "log_level": os.getenv("LOG_LEVEL", "INFO"),
     }

@@ -14,14 +14,13 @@ class OutageGeocoder:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.db_manager = db_manager
         
-        # Učitaj konfiguraciju preko postojećeg sistema u aplikaciji
         config = load_config()
-        # Traži GEOLOCATOR_EMAIL u config-u, a ako ga nema, koristi default
-        user_email = config.get("GEOLOCATOR_EMAIL", "outage.pipeline.support@proton.me")
-        # Tell me what email
-        self.logger.info(f"Initialized Nominatim Geocoder with email: {user_email}")
-        # OSM-compliant User-Agent
-        user_agent = f"ElectricityOutageScraper/2.0 (BiH Infrastructure Monitor; contact: {user_email})"
+        user_email = config.get("geolocator_email") or "wrongconfig@checkyourlogs"
+        
+        self.logger.info(f"Initialized Nominatim Geocoder v3.0 with email: {user_email}")
+        
+        # OSM-compliant User-Agent sa novom 3.0 verzijom
+        user_agent = f"ElectricityOutageScraper/3.0 (BiH Infrastructure Monitor; contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent)
         
         # 15s delay = 4 requests per minute (OSM Compliant)
