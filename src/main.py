@@ -53,16 +53,6 @@ def run_scrape_job():
         # Scrape all providers
         outages = scraper_manager.scrape_all(parallel=True)
         
-        # Geocode
-
-        logger.info("Geocoding outage locations for the map...")
-        for outage in outages:
-            # Skip if the scraper (like Doboj) already provided exact coordinates
-            if not getattr(outage, 'coordinates', None):
-                lat, lon = geocoder.get_coordinates(outage.municipality, outage.area)
-                if lat and lon:
-                    outage.coordinates = (lat, lon)
-
         # Save to database (now returns exactly the newly inserted objects)
         save_result = db_manager.save_outages(outages)
         logger.info(f"Database: {save_result['new']} new, {save_result['existing']} existing")
@@ -73,6 +63,17 @@ def run_scrape_job():
         if new_outages:
             notification_stats = subscription_service.process_outages(new_outages)
             logger.info(f"Notifications: {notification_stats}")
+
+        # Geocode
+        logger.info("Geocoding outage locations for the map...")
+        for outage in outages:
+            # Skip if the scraper (like Doboj) already provided exact coordinates
+            if not getattr(outage, 'coordinates', None):
+                lat, lon = geocoder.get_coordinates(outage.municipality, outage.area)
+                if lat and lon:
+                    outage.coordinates = (lat, lon)
+                    # Progressive save: updates this specific outage in DB instantly
+                    db_manager.save_outages([outage])
         
 # ----- DISABLED CLEANING UP OLD DATA , HISTORICAL RETENTION PREFERRED -----
 
