@@ -5,14 +5,22 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from geopy.extra.rate_limiter import RateLimiter
 
+from src.config.settings import load_config
+
 class OutageGeocoder:
     """Geocodes municipality and area text into GPS coordinates using Postgres caching."""
     
-    def __init__(self, db_manager, user_email: str = "admin@example.com"):
+    def __init__(self, db_manager):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.db_manager = db_manager
         
-        user_agent = f"electricity-outage-scraper/1.0 (contact: {user_email})"
+        # Učitaj konfiguraciju preko postojećeg sistema u aplikaciji
+        config = load_config()
+        # Traži GEOLOCATOR_EMAIL u config-u, a ako ga nema, koristi default
+        user_email = config.get("GEOLOCATOR_EMAIL", "outage.pipeline.support@proton.me")
+        
+        # OSM-compliant User-Agent
+        user_agent = f"ElectricityOutageScraper/2.0 (BiH Infrastructure Monitor; contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent)
         
         # 15s delay = 4 requests per minute (OSM Compliant)
