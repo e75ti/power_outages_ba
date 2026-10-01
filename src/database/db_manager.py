@@ -113,6 +113,11 @@ class DatabaseManager:
                     new_objects.append(outage)
                 else:
                     existing_count += 1
+                    # --- NEW FIX: Update coordinates if they were missing! ---
+                    if outage.coordinates and (existing.lat is None or existing.lat == -999.0):
+                        existing.lat = outage.coordinates[0]
+                        existing.lng = outage.coordinates[1]
+                    # ---------------------------------------------------------
             session.commit()
             
         return {"new": new_count, "existing": existing_count, "new_objects": new_objects}
