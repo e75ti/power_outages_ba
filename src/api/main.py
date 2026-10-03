@@ -52,9 +52,10 @@ def health_check():
 @app.get("/api/v1/outages/active", response_model=List[OutageResponse])
 def get_active_outages(db: Session = Depends(get_db)):
     """Returns all outages happening today or in the future."""
-    now = datetime.now()
-    # Robust querying: include future outages OR outages with unknown end times
+    # Compare against midnight of the current day so today's outages don't disappear!
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
     outages = db.query(OutageModel).filter(
-        (OutageModel.date_end >= now) | (OutageModel.date_end.is_(None))
+        (OutageModel.date_end >= today_midnight) | (OutageModel.date_end.is_(None))
     ).all()
     return outages
