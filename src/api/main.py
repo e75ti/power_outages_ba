@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
 from src.database.db_manager import DatabaseManager, OutageModel
+from src.models.subscription import Subscription
 
 # 1. Initialize Database
 db_manager = DatabaseManager()
@@ -23,7 +24,6 @@ class OutageResponse(BaseModel):
     lat: Optional[float]
     lng: Optional[float]
     
-    # SRE Data Cleaning: Intercept negative cache and turn to NULL for the API
     @model_validator(mode='after')
     def clean_coordinates(self) -> 'OutageResponse':
         if self.lat == -999.0 or self.lng == -999.0:
@@ -33,6 +33,16 @@ class OutageResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class SubscriptionRequest(BaseModel):
+    street_name: str
+    municipality: str
+    house_number: Optional[str] = ""
+    push_endpoint: str
+    push_keys: dict
+    is_rural: Optional[bool] = False
+    notify_radius_km: Optional[float] = 5.0
+    provider_preference: Optional[List[str]] = []
 
 # 3. Initialize FastAPI App
 app = FastAPI(
@@ -54,10 +64,33 @@ def health_check():
 @app.get("/api/v1/outages/active", response_model=List[OutageResponse])
 def get_active_outages(db: Session = Depends(get_db)):
     """Returns all outages happening today or in the future."""
-    # Compare against midnight of the current day so today's outages don't disappear!
     today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
     outages = db.query(OutageModel).filter(
         (OutageModel.date_end >= today_midnight) | (OutageModel.date_end.is_(None))
     ).all()
     return outages
+
+@app.post("/api/v1/subscribe", status_code=201)
+def create_subscription(sub_req: SubscriptionRequest):
+    """Creates a new user subscription for outage alerts."""
+    new_sub = Subscription(
+        street_name=sub_req.street_name,
+        municipality=sub_req.municipality,
+        house_number=sub_req.house_number,
+        push_endpoint=sub_req.push_endpoint,
+        push_keys=sub_req.push_keys,
+        is_rural=sub_req.is_rural,
+        notify_radius_km=sub_req.notify_radius_km,
+        provider_preference=sub_req.provider_preference
+    )
+    
+    success = db_manager.save_subscription(new_sub)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save subscription")
+        
+    return {
+        "status": "success", 
+        "message": "Subscription created", 
+        "subscription_id": new_sub.subscription_id
+    }
