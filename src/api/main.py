@@ -4,8 +4,7 @@ from fastapi import FastAPI, Depends
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
-from src.database.db_manager import DatabaseManager
-from src.database.models import OutageModel
+from src.database.db_manager import DatabaseManager, OutageModel
 
 # 1. Initialize Database
 db_manager = DatabaseManager()
@@ -14,9 +13,9 @@ db_manager = DatabaseManager()
 class OutageResponse(BaseModel):
     id: str
     provider: str
-    municipality: str
-    area: str
-    reason: str
+    municipality: Optional[str]
+    area: Optional[str]
+    reason: Optional[str]
     date_start: Optional[datetime]
     date_end: Optional[datetime]
     lat: Optional[float]
