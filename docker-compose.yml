@@ -13,6 +13,7 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+        # Change this required to true if you are using the internal postgresql
         required: false
     environment:
       - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
@@ -38,6 +39,8 @@ services:
     depends_on:
       postgres-db:
         condition: service_healthy
+        # Change this required to true if you are using the internal postgresql
+        required: false
     environment:
       - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
     logging:
