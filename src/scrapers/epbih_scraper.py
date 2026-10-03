@@ -50,11 +50,11 @@ class EPBiHScraper(BaseScraper):
         
         EPBiH table structure:
         <tr class="item" data-ed="edsa" data-opcina="ilidza">
-            <td>Ilidža</td>           <!-- Municipality -->
+            <td>Ilidža</td>          <!-- Municipality -->
             <td class="ulica">Unska</td>  <!-- Street -->
-            <td>1, 3, 5-26...</td>    <!-- House numbers -->
-            <td>03.02.2026</td>       <!-- Date -->
-            <td>11:00-12:00</td>      <!-- Time -->
+            <td>1, 3, 5-26...</td>   <!-- House numbers -->
+            <td>03.02.2026</td>      <!-- Date -->
+            <td>11:00-12:00</td>     <!-- Time -->
         </tr>
         
         Args:
@@ -136,6 +136,7 @@ class EPBiHScraper(BaseScraper):
                 area=area,
                 streets=street,
                 date_start=date_start,
+                date_end=date_start,      # <--- THE FIX: Single pure date for both
                 time_start=time_start,
                 time_end=time_end,
                 reason="Planirani radovi",  # EPBiH doesn't provide specific reasons
@@ -206,6 +207,7 @@ class EPBiHScraper(BaseScraper):
                     area=area,
                     streets=street,
                     date_start=date_start,
+                    date_end=date_start,      # <--- THE FIX: Single pure date for both
                     time_start=time_start,
                     time_end=time_end,
                     reason="Planirani radovi",
