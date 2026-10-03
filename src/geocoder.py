@@ -18,8 +18,10 @@ class OutageGeocoder:
         user_email = config.get("geolocator_email") or "wrongconfig@checkyourlogs"
         
         self.logger.info(f"Initialized Nominatim Geocoder v3.1 with email: {user_email}")
-	if user_email == 'wrongconfig@checkyourlogs':
-            self.logger.error("Huge issue! Email is set to not what it should be! Abort!")
+        
+        if user_email == 'wrongconfig@checkyourlogs':
+            self.logger.error("Huge issue! Email is set to default! Please check your .env file.")
+            
         user_agent = f"ElectricityOutageScraper/3.1 (BiH Infrastructure Monitor; contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent)
 
@@ -31,14 +33,14 @@ class OutageGeocoder:
         )
 
     def _clean_area(self, area: str) -> str:
-        """Strips out house numbers, ranges, and utility jargon (TS, DV 10kV, etc.) to get real locations."""
+        """Strips out house numbers, ranges, and utility jargon (TS, DV 10kV, etc.) ONLY for OSM API."""
         if not area:
             return ""
         
         # 1. Remove common electrical infrastructure prefixes (TS, DV, NNM, etc.)
-        cleaned = re.sub(r'^(TS|DV\s*\d+\s*kV|NNM|Kbr|Br\.)\s*', '', area, flags=IGNORECASE if 'IGNORECASE' in globals() else re.IGNORECASE).strip()
+        cleaned = re.sub(r'^(TS|DV\s*\d+\s*kV|NNM|Kbr|Br\.)\s*', '', area, flags=re.IGNORECASE).strip()
         
-        # 2. Strip out house numbers and ranges
+        # 2. Strip out house numbers and ranges (Because Nominatim API cannot process them)
         base_area = re.split(r'\d|,', cleaned)[0].strip()
         return base_area if len(base_area) > 2 else cleaned.split(',')[0].strip()
 
