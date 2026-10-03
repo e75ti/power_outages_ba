@@ -18,6 +18,8 @@ class OutageResponse(BaseModel):
     reason: Optional[str]
     date_start: Optional[datetime]
     date_end: Optional[datetime]
+    time_start: Optional[str]
+    time_end: Optional[str]
     lat: Optional[float]
     lng: Optional[float]
     

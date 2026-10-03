@@ -257,7 +257,7 @@ class DatabaseManager:
             area=outage.area,
             streets=outage.streets,
             date_start=outage.date_start,
-            date_end=outage.date_end,
+            date_end=outage.date_end or outage.date_start,
             time_start=outage.time_start,
             time_end=outage.time_end,
             reason=outage.reason,
