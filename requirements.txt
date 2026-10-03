@@ -29,3 +29,7 @@ python-json-logger>=2.0.7
 
 # Prometheus
 prometheus-client>=0.20.0
+
+# FastAPI
+fastapi>=0.110.0
+uvicorn>=0.27.1
