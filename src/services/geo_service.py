@@ -13,6 +13,9 @@ from src.models.outage import Outage
 from src.models.subscription import Subscription
 from src.config.settings import load_config
 
+# NEW: Import the Smart Matcher!
+from src.utils.address_matcher import AddressMatcher
+
 
 class GeoService:
     """Service for geolocation-based matching between outages and subscriptions."""
@@ -47,7 +50,7 @@ class GeoService:
         if subscription.provider_preference and outage.provider not in subscription.provider_preference:
             return False
 
-        # Tier 1: Direct string matching
+        # Tier 1: Direct string matching + SMART MATCH
         if self._direct_match(outage, subscription):
             return True
         
@@ -75,11 +78,21 @@ class GeoService:
         if not municipality_match and municipality != self._normalize_text(outage.municipality):
             return False
             
+        street_found = False
         for text in outage_texts:
             if street in text:
-                return True
+                street_found = True
+                break
                 
-        return self._fuzzy_street_match(street, outage_texts)
+        if not street_found:
+            street_found = self._fuzzy_street_match(street, outage_texts)
+
+        # THE SMART MATCHER GATEWAY
+        if street_found:
+            # SRE Fix: Pass outage.area instead of raw_text to avoid accidentally matching dates like "10" in 10.05.2026
+            return AddressMatcher.is_match(subscription.house_number, outage.area)
+            
+        return False
     
     def _fuzzy_street_match(self, street: str, texts: List[str]) -> bool:
         street_clean = re.sub(r'^(ul\.?|ulica)\s*', '', street)

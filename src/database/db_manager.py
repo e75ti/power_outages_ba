@@ -42,6 +42,7 @@ class SubscriptionModel(Base):
     __tablename__ = 'subscriptions'
     id = Column(String, primary_key=True)
     street_name = Column(String, nullable=False)
+    house_number = Column(String, nullable=True)
     municipality = Column(String, nullable=False)
     push_endpoint = Column(String, nullable=False)
     push_keys = Column(Text) # Stored as JSON string
@@ -292,6 +293,7 @@ class DatabaseManager:
         return SubscriptionModel(
             id=sub.subscription_id,
             street_name=sub.street_name,
+            house_number=sub.house_number,
             municipality=sub.municipality,
             push_endpoint=sub.push_endpoint,
             push_keys=json.dumps(sub.push_keys),
@@ -311,6 +313,7 @@ class DatabaseManager:
         data = {
             "subscription_id": model.id,
             "street_name": model.street_name,
+            "house_number": model.house_number,
             "municipality": model.municipality,
             "push_endpoint": model.push_endpoint,
             "push_keys": json.loads(model.push_keys) if model.push_keys else {},

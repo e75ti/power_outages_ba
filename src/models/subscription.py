@@ -14,6 +14,7 @@ class Subscription:
     # Required fields
     street_name: str
     municipality: str
+    house_number: str = ""  # <--- NEW SRE FEATURE
     
     # Web Push fields
     push_endpoint: str = ""
@@ -45,6 +46,7 @@ class Subscription:
         key_parts = [
             self.push_endpoint,
             self.street_name.lower(),
+            self.house_number.lower(),  # <--- Added to your deduplication hash!
             self.municipality.lower(),
         ]
         key_string = "|".join(key_parts)
@@ -54,6 +56,7 @@ class Subscription:
         return {
             "subscription_id": self.subscription_id,
             "street_name": self.street_name,
+            "house_number": self.house_number,  # <--- NEW SRE FEATURE
             "municipality": self.municipality,
             "push_endpoint": self.push_endpoint,
             "push_keys": self.push_keys,
@@ -89,12 +92,12 @@ class Subscription:
         sub = cls(
             street_name=data.get("street_name", ""),
             municipality=data.get("municipality", ""),
+            house_number=data.get("house_number", ""),  # <--- NEW SRE FEATURE
             push_endpoint=data.get("push_endpoint", ""),
             push_keys=data.get("push_keys", {}),
             coordinates=coordinates,
             is_rural=data.get("is_rural", False),
             notify_radius_km=data.get("notify_radius_km", 5.0),
-            is_active=data.get("is_active", True),
             provider_preference=data.get("provider_preference", []),
             created_at=created_at,
             updated_at=updated_at,
@@ -121,7 +124,7 @@ class Subscription:
     def __str__(self) -> str:
         status = "🟢" if self.is_active else "🔴"
         rural = " (rural)" if self.is_rural else ""
-        return f"{status} {self.street_name}, {self.municipality}{rural}"
+        return f"{status} {self.street_name} {self.house_number}, {self.municipality}{rural}"
     
     def __repr__(self) -> str:
         return f"Subscription(id={self.subscription_id}, street={self.street_name})"
