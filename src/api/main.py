@@ -1,9 +1,8 @@
 import os
 import logging
-import sys
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
@@ -11,18 +10,18 @@ from sqlalchemy.orm import Session
 from src.database.db_manager import DatabaseManager, OutageModel
 from src.models.subscription import Subscription
 
+# NEW: Import your JSON logging config
+from src.utils.config import setup_logging
+
+# 1. Initialize JSON Logging
+setup_logging()
 logger = logging.getLogger("OutageAPI")
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-logger.addHandler(handler)
-logger.info("========================================")
-logger.info(f"OUTAGE API BOOT SEQUENCE INITIATED")
-logger.info(f"API Started. Allowed origins: {os.environ.get('FRONTEND_URL', '*')}")
-logger.info("========================================")
-# 1. Initialize Database
+logger.info("Outage API Boot Sequence Initiated", extra={"allowed_origins": os.environ.get("FRONTEND_URL", "*")})
+
+# 2. Initialize Database
 db_manager = DatabaseManager()
 
-# 2. Define Pydantic Schemas (The "FastAPI" way)
+# 3. Define Pydantic Schemas
 class OutageResponse(BaseModel):
     id: str
     provider: str
@@ -56,7 +55,7 @@ class SubscriptionRequest(BaseModel):
     notify_radius_km: Optional[float] = 5.0
     provider_preference: Optional[List[str]] = []
 
-# 3. Initialize FastAPI App
+# 4. Initialize FastAPI App
 app = FastAPI(
     title="BiH Electricity Outage API",
     description="REST API for active electricity outages in Bosnia and Herzegovina",
@@ -65,17 +64,43 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("FRONTEND_URL", "*").split(","), # For production, change this to your real domain later!
+    allow_origins=os.environ.get("FRONTEND_URL", "*").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ==========================================
+# SRE Structured Access Logs (Middleware)
+# ==========================================
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = datetime.now()
+    response = await call_next(request)
+    duration = (datetime.now() - start_time).total_seconds()
+    
+    # We ignore /health so we don't spam Grafana with Docker pings
+    if request.url.path != "/health":
+        # Extract the real user IP forwarded by Nginx/Cloudflare
+        client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+        
+        logger.info(
+            f"API Request: {request.method} {request.url.path}",
+            extra={
+                "http_method": request.method,
+                "url_path": request.url.path,
+                "status_code": response.status_code,
+                "duration_seconds": duration,
+                "client_ip": client_ip
+            }
+        )
+    return response
+
 def get_db():
     with db_manager.Session() as session:
         yield session
 
-# 4. API Endpoints
+# 5. API Endpoints
 @app.get("/health")
 def health_check():
     """SRE Health Check endpoint for Docker/Kubernetes."""
@@ -107,10 +132,13 @@ def create_subscription(sub_req: SubscriptionRequest):
     
     success = db_manager.save_subscription(new_sub)
     if not success:
+        logger.error("Failed to save subscription", extra={"endpoint": sub_req.push_endpoint})
         raise HTTPException(status_code=500, detail="Failed to save subscription")
         
+    logger.info("New Web Push Subscription Created", extra={"municipality": sub_req.municipality, "street": sub_req.street_name})
+    
     return {
-        "status": "success", 
-        "message": "Subscription created", 
+        "status": "success",  
+        "message": "Subscription created",  
         "subscription_id": new_sub.subscription_id
     }
