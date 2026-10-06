@@ -1,12 +1,24 @@
+import os
+import logging
+import sys
 from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, model_validator
 from sqlalchemy.orm import Session
 
 from src.database.db_manager import DatabaseManager, OutageModel
 from src.models.subscription import Subscription
 
+logger = logging.getLogger("OutageAPI")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+logger.addHandler(handler)
+logger.info("========================================")
+logger.info(f"OUTAGE API BOOT SEQUENCE INITIATED")
+logger.info(f"API Started. Allowed origins: {os.environ.get('FRONTEND_URL', '*')}")
+logger.info("========================================")
 # 1. Initialize Database
 db_manager = DatabaseManager()
 
@@ -49,6 +61,14 @@ app = FastAPI(
     title="BiH Electricity Outage API",
     description="REST API for active electricity outages in Bosnia and Herzegovina",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.environ.get("FRONTEND_URL", "*").split(","), # For production, change this to your real domain later!
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 def get_db():

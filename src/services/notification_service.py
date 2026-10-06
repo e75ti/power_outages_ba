@@ -1,8 +1,9 @@
-# src/services/notification_service.py
 """Multi-channel notification service."""
 
+import os
 import json
 import logging
+import requests
 from enum import Enum
 from pywebpush import webpush, WebPushException
 
@@ -28,6 +29,9 @@ class NotificationService:
         self.vapid_private_key = self.config.get("vapid_private_key", "")
         self.vapid_claims = {"sub": f"mailto:{self.config.get('vapid_claims_email', 'admin@example.com')}"}
         
+        # Telegram config
+        self.telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        
         # TODO: Load Viber Bot Token / FCM Credentials here when ready
     
     def send_outage_notification(self, subscription: Subscription, outage: Outage) -> NotificationStatus:
@@ -35,10 +39,17 @@ class NotificationService:
         
         payload = self._build_outage_payload(outage)
         
-        # Channel Router - easily expandable for Viber/FCM
-        if subscription.push_endpoint:
+        # --- THE CHANNEL ROUTER ---
+        
+        # 1. Telegram
+        if subscription.push_endpoint and subscription.push_endpoint.startswith("telegram:"):
+            return self._send_telegram_message(subscription, payload)
+            
+        # 2. Web Push
+        elif subscription.push_endpoint:
             return self._send_web_push(subscription, payload)
         
+        # 3. Viber (Future)
         # elif subscription.viber_id:
         #     return self._send_viber_message(subscription, payload)
             
@@ -62,6 +73,31 @@ class NotificationService:
                 "url": f"/outage/{outage.outage_id}",
             }
         }
+
+    def _send_telegram_message(self, subscription: Subscription, payload: dict) -> NotificationStatus:
+        if not self.telegram_token:
+            self.logger.error("Telegram token missing.")
+            return NotificationStatus.ERROR
+            
+        chat_id = subscription.push_endpoint.replace("telegram:", "")
+        text = f"*{payload['title']}*\n\n{payload['body']}"
+        
+        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+        
+        try:
+            response = requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=10)
+            if response.status_code == 200:
+                self.logger.info(f"Telegram notification sent to {chat_id}")
+                return NotificationStatus.SUCCESS
+            elif response.status_code in (400, 403):
+                self.logger.warning(f"Telegram user {chat_id} blocked the bot.")
+                return NotificationStatus.EXPIRED  # Auto-cleans the database!
+            else:
+                self.logger.error(f"Telegram API Error: {response.text}")
+                return NotificationStatus.ERROR
+        except Exception as e:
+            self.logger.error(f"Telegram Network Error: {e}")
+            return NotificationStatus.ERROR
     
     def _send_web_push(self, subscription: Subscription, payload: dict) -> NotificationStatus:
         if not self.vapid_private_key:
@@ -88,8 +124,3 @@ class NotificationService:
         except Exception as e:
             self.logger.error(f"Unexpected error: {e}")
             return NotificationStatus.ERROR
-
-    def _send_viber_message(self, subscription: Subscription, payload: dict) -> NotificationStatus:
-        """Stub for future Viber Bot integration."""
-        self.logger.info("Viber integration pending.")
-        return NotificationStatus.SUCCESS
