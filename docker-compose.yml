@@ -21,6 +21,7 @@ services:
       - SCRAPE_INTERVAL_MINUTES=${SCRAPE_INTERVAL_MINUTES:-30}
       - ENABLE_GEO_MATCHING=${ENABLE_GEO_MATCHING:-true}
       - GEOLOCATOR_EMAIL=${GEOLOCATOR_EMAIL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     logging:
       driver: "json-file"
       options:
@@ -70,6 +71,27 @@ services:
       retries: 5
       start_period: 10s
 
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: outage-telegram-bot
+    restart: unless-stopped
+    command: python -m src.bots.telegram_bot
+    environment:
+      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ADMIN_ID=${TELEGRAM_ADMIN_ID}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+        required: false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # --- OPTIONAL OBSERVABILITY STACK ---
   loki:
     image: grafana/loki:latest
@@ -92,7 +114,7 @@ services:
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: 
+    command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
       - /etc/alloy/config.alloy
