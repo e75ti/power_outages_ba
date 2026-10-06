@@ -8,26 +8,64 @@
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; background: #f4f4f5; color: #333; }
         .container { max-width: 800px; margin: 0 auto; }
+        .stats-banner { background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #1e40af; }
-        #map { height: 400px; border-radius: 8px; border: 1px solid #e5e7eb; }
-        input { padding: 10px; margin: 5px 0; width: calc(100% - 22px); border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #2563eb; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        h2 { margin-top: 0; color: #1e40af; margin-bottom: 5px;}
+        p.subtitle { color: #475569; margin-top: 0; margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
+        
+        /* Highlight manual entry */
+        .manual-entry { background: #f8fafc; border: 2px solid #93c5fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #1e293b; font-size: 0.9em; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        
+        .divider { text-align: center; margin: 20px 0; color: #64748b; font-weight: bold; position: relative; }
+        .divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 40%; height: 1px; background: #cbd5e1; }
+        .divider::before { left: 0; } .divider::after { right: 0; }
+        
+        #map { height: 350px; border-radius: 8px; border: 2px solid #e5e7eb; cursor: crosshair; }
+        button { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; transition: background 0.2s; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        button:hover:not(:disabled) { background: #1d4ed8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Live SRE Telemetry Banner -->
+        <div class="stats-banner" id="statsBanner">
+            <div>🔌 Aktivna isključenja: <span id="statOutages">...</span></div>
+            <div>🛡️ Zaštićeni korisnici: <span id="statUsers">...</span></div>
+        </div>
+
         <div class="card">
             <h2>⚡ BiH Power Alerts</h2>
-            <div>
-                <input type="text" id="street" placeholder="Ulica (npr. Kračule)">
-                <input type="text" id="city" placeholder="Grad (npr. Sarajevo)">
-                <button onclick="subscribePush()">Pretplati se na Web Push</button>
+            
+            <div class="manual-entry">
+                <p class="subtitle"><strong>PREPORUKA:</strong> Najpreciznije je da ručno unesete svoje podatke kako bi se tačno poklopili sa podacima elektrodistribucije.</p>
+                
+                <div class="input-group">
+                    <label>Općina / Grad *</label>
+                    <input type="text" id="cityInput" placeholder="npr. Novo Sarajevo, Ilidža, Visoko">
+                </div>
+                <div class="input-group">
+                    <label>Ulica ili Naselje *</label>
+                    <input type="text" id="streetInput" placeholder="npr. Zmaja od Bosne, Kračule">
+                </div>
+                <div class="input-group">
+                    <label>Kućni broj (opcionalno)</label>
+                    <input type="text" id="numberInput" placeholder="npr. 42 (Ostavite prazno za cijelu ulicu)">
+                </div>
             </div>
+            
+            <div class="divider">ILI AKO NISTE SIGURNI</div>
+            
+            <p class="subtitle" style="text-align: center;">Kliknite na kartu ispod i polja će se automatski popuniti.<br><i>(Za ruralna područja možda bude čudno/pogrešno izgledalo, to je ok.</i></p>
+            <div id="map"></div>
+            
+            <button id="subBtn" onclick="subscribePush()" disabled>Pretplati se na Web Push</button>
             <div id="status"></div>
         </div>
-        <div class="card"><div id="map"></div></div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
