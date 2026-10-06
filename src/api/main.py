@@ -155,3 +155,21 @@ def create_subscription(sub_req: SubscriptionRequest):
         "message": "Subscription created",  
         "subscription_id": new_sub.subscription_id
     }
+
+@app.get("/api/v1/stats")
+def get_system_stats():
+    """SRE Live Telemetry for the Frontend Banner."""
+    from datetime import datetime
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    with db_manager.Session() as session:
+        active_outages = session.query(OutageModel).filter(
+            (OutageModel.date_end >= today_midnight) | (OutageModel.date_end.is_(None))
+        ).count()
+        
+    active_subs = len(db_manager.get_all_active_subscriptions())
+    
+    return {
+        "active_outages": active_outages,
+        "protected_users": active_subs
+    }
