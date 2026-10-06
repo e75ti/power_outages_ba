@@ -1,5 +1,5 @@
 const PUBLIC_VAPID_KEY = 'BEDB1bl2ezxa6lOPhctgVecX6hNRZNQt6AY_n5Q7Cshi7hVcJkUFpBUWxS04m1pw1E9R4SO_Y0aiszjYBMCc2co'; // <-- PASTE YOUR KEY HERE
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+const API_BASE_URL = '/api/v1';
 
 const map = L.map('map').setView([44.2056, 17.9077], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);

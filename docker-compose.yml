@@ -92,6 +92,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
+
+  nginx:
+    image: nginx:alpine
+    container_name: outage-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"  # You can remove this line later once the tunnel is working!
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/public:/usr/share/nginx/html:ro
+    depends_on:
+      - api-server
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: outage-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+
   # --- OPTIONAL OBSERVABILITY STACK ---
   loki:
     image: grafana/loki:latest

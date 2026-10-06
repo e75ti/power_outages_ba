@@ -1,4 +1,3 @@
-# src/services/geo_service.py
 """Geolocation matching service."""
 
 import logging
@@ -12,8 +11,6 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from src.models.outage import Outage
 from src.models.subscription import Subscription
 from src.config.settings import load_config
-
-# NEW: Import the Smart Matcher!
 from src.utils.address_matcher import AddressMatcher
 
 
@@ -27,11 +24,6 @@ class GeoService:
     ]
     
     def __init__(self, db_manager=None):
-        """
-        Initialize the geo service.
-        Args:
-            db_manager: Database manager instance for caching coordinates.
-        """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config = load_config()
         self.db = db_manager
@@ -52,13 +44,13 @@ class GeoService:
 
         # Tier 1: Direct string matching + SMART MATCH
         if self._direct_match(outage, subscription):
+            self.logger.info(f"✅ TEXT MATCH: {subscription.street_name} matched outage {outage.outage_id}")
             return True
         
-        # Tier 2: Area-based geo matching
-        if subscription.is_rural and self.enable_geo_matching:
-            if not self._is_major_city(subscription.municipality):
-                if self._area_match(outage, subscription):
-                    return True
+        # Tier 2: Area-based geo matching (The Fallback)
+        if self.enable_geo_matching:
+            if self._area_match(outage, subscription):
+                return True
         
         return False
     
@@ -87,9 +79,7 @@ class GeoService:
         if not street_found:
             street_found = self._fuzzy_street_match(street, outage_texts)
 
-        # THE SMART MATCHER GATEWAY
         if street_found:
-            # SRE Fix: Pass outage.area instead of raw_text to avoid accidentally matching dates like "10" in 10.05.2026
             return AddressMatcher.is_match(subscription.house_number, outage.area)
             
         return False
@@ -113,32 +103,37 @@ class GeoService:
         if not outage_coords: return False
         
         distance = geodesic(sub_coords, outage_coords).kilometers
-        radius = subscription.notify_radius_km or self.default_radius_km
-        return distance <= radius
+        
+        # SRE LOGIC: Dynamic Radius
+        if subscription.is_rural or not self._is_major_city(subscription.municipality):
+            radius = 5.0  # Rural/Town fallback
+        else:
+            radius = 0.5  # Urban strict fallback
+            
+        is_match = distance <= radius
+        
+        if is_match:
+            self.logger.info(f"📍 GEO MATCH: {subscription.street_name} is {distance:.2f}km from outage (Limit: {radius}km)")
+            
+        return is_match
     
     def _geocode_location(self, street: str, municipality: str) -> Optional[Tuple[float, float]]:
         query = f"{street}, {municipality}, Bosnia and Herzegovina"
         
-        # Check Database Cache First
         if self.db:
             cached = self.db.get_cached_coordinates(query)
             if cached:
-                self.logger.debug(f"Geocache hit for: {query}")
                 return cached
 
-        # Strict OpenStreetMap Rate Limit (1 req / sec)
         time.sleep(1.1)
         
         try:
-            self.logger.debug(f"Geocache miss, querying API for: {query}")
             location = self.geolocator.geocode(query) or self.geolocator.geocode(f"{municipality}, Bosnia and Herzegovina")
-            
             if location:
                 coords = (location.latitude, location.longitude)
                 if self.db:
                     self.db.cache_coordinates(query, coords[0], coords[1])
                 return coords
-                
         except (GeocoderTimedOut, GeocoderServiceError) as e:
             self.logger.warning(f"Geocoding failed for {query}: {e}")
         
