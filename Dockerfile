@@ -29,6 +29,7 @@ RUN pip install --no-cache /wheels/*
 
 # Copy application code
 COPY src/ ./src/
+COPY tests/ ./tests/
 
 # Ensure proper permissions for the non-root user
 RUN chown -R scraperuser:scrapergroup /app

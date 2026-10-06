@@ -1,5 +1,7 @@
 import os
 import logging
+import sys
+import json
 from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request
@@ -10,12 +12,29 @@ from sqlalchemy.orm import Session
 from src.database.db_manager import DatabaseManager, OutageModel
 from src.models.subscription import Subscription
 
-# NEW: Import your JSON logging config
-from src.utils.config import setup_logging
+# 1. The Best of Both Worlds: Working sys.stdout + JSON Formatting
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_record = {
+            "asctime": self.formatTime(record),
+            "name": record.name,
+            "levelname": record.levelname,
+            "message": record.getMessage()
+        }
+        for key in ["http_method", "url_path", "status_code", "duration_seconds", "client_ip", "allowed_origins", "endpoint", "municipality", "street"]:
+            if hasattr(record, key):
+                log_record[key] = getattr(record, key)
+        return json.dumps(log_record)
 
-# 1. Initialize JSON Logging
-setup_logging()
 logger = logging.getLogger("OutageAPI")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+
+if logger.hasHandlers():
+    logger.handlers.clear()
+logger.addHandler(handler)
+
 logger.info("Outage API Boot Sequence Initiated", extra={"allowed_origins": os.environ.get("FRONTEND_URL", "*")})
 
 # 2. Initialize Database
@@ -79,11 +98,8 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration = (datetime.now() - start_time).total_seconds()
     
-    # We ignore /health so we don't spam Grafana with Docker pings
     if request.url.path != "/health":
-        # Extract the real user IP forwarded by Nginx/Cloudflare
         client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
-        
         logger.info(
             f"API Request: {request.method} {request.url.path}",
             extra={
@@ -103,12 +119,10 @@ def get_db():
 # 5. API Endpoints
 @app.get("/health")
 def health_check():
-    """SRE Health Check endpoint for Docker/Kubernetes."""
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 @app.get("/api/v1/outages/active", response_model=List[OutageResponse])
 def get_active_outages(db: Session = Depends(get_db)):
-    """Returns all outages happening today or in the future."""
     today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
     outages = db.query(OutageModel).filter(
@@ -118,7 +132,6 @@ def get_active_outages(db: Session = Depends(get_db)):
 
 @app.post("/api/v1/subscribe", status_code=201)
 def create_subscription(sub_req: SubscriptionRequest):
-    """Creates a new user subscription for outage alerts."""
     new_sub = Subscription(
         street_name=sub_req.street_name,
         municipality=sub_req.municipality,
