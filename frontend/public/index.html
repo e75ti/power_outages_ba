@@ -8,55 +8,36 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; background: #f4f4f5; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: #e2e8f0; color: #333; }
+        
+        /* Navigation Header */
+        .top-nav { background: #1e293b; color: white; padding: 15px 20px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .nav-container { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { font-weight: bold; font-size: 1.2em; color: #38bdf8; }
+        .nav-links a { color: #cbd5e1; text-decoration: none; margin-left: 15px; font-size: 0.9em; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: white; }
+        
+        .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
         .stats-banner { background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
         h2 { margin-top: 0; color: #1e40af; margin-bottom: 5px;}
         p.subtitle { color: #475569; margin-top: 0; margin-bottom: 20px; font-size: 0.95em; line-height: 1.5; }
         
-        /* Highlight manual entry */
         .manual-entry { background: #f8fafc; border: 2px solid #93c5fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #1e293b; font-size: 0.9em; }
         input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
         
         .divider { text-align: center; margin: 20px 0; color: #64748b; font-weight: bold; position: relative; }
-        .divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 40%; height: 1px; background: #cbd5e1; }
+        .divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 35%; height: 1px; background: #cbd5e1; }
         .divider::before { left: 0; } .divider::after { right: 0; }
         
         /* --- SRE DASHBOARD CSS --- */
-        .sre-dashboard {
-            display: flex;
-            justify-content: space-between;
-            background: #0f172a;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            gap: 15px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-        .sre-badge {
-            display: flex;
-            flex-direction: column;
-        }
-        .badge-label {
-            font-size: 11px;
-            color: #94a3b8;
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        .badge-value {
-            font-size: 18px;
-            color: #38bdf8;
-            font-weight: 700;
-            margin-top: 2px;
-        }
-        @media (max-width: 600px) {
-            .sre-dashboard { flex-wrap: wrap; }
-            .sre-badge { width: 45%; margin-bottom: 10px; }
-        }
-        /* ------------------------- */
+        .sre-dashboard { display: flex; justify-content: space-between; background: #0f172a; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; gap: 15px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .sre-badge { display: flex; flex-direction: column; }
+        .badge-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+        .badge-value { font-size: 18px; color: #38bdf8; font-weight: 700; margin-top: 2px; }
+        @media (max-width: 600px) { .sre-dashboard { flex-wrap: wrap; } .sre-badge { width: 45%; margin-bottom: 10px; } }
 
         #map { height: 350px; border-radius: 8px; border: 2px solid #e5e7eb; cursor: crosshair; }
         button { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; transition: background 0.2s; }
@@ -66,6 +47,19 @@
     </style>
 </head>
 <body>
+    
+    <!-- TOP NAVIGATION -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <span class="nav-logo">⚡ BiH Power Alerts</span>
+            <div class="nav-links">
+                <a href="#prijava">Prijava</a>
+                <a href="#karta">Karta</a>
+                <a href="#info">O Projektu</a>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
         <!-- Live SRE Telemetry Banner -->
         <div class="stats-banner" id="statsBanner">
@@ -73,8 +67,8 @@
             <div>🛡 Zaštićeni korisnici: <span id="statUsers">...</span></div>
         </div>
 
-        <div class="card">
-            <h2>⚡ BiH Power Alerts</h2>
+        <div class="card" id="prijava">
+            <h2>Prijavite se za upozorenja</h2>
             
             <div class="manual-entry">
                 <p class="subtitle"><strong>PREPORUKA:</strong> Najpreciznije je da ručno unesete svoje podatke kako bi se tačno poklopili sa podacima elektrodistribucije.</p>
@@ -93,7 +87,7 @@
                 </div>
             </div>
             
-            <div class="divider">ILI AKO NISTE SIGURNI</div>
+            <div class="divider" id="karta">ILI AKO NISTE SIGURNI</div>
             
             <p class="subtitle" style="text-align: center;">Kliknite na kartu ispod i polja će se automatski popuniti.<br><i>(Za ruralna područja možda bude čudno/pogrešno izgledalo, to je ok.)</i></p>
             
@@ -121,6 +115,49 @@
             
             <button id="subBtn" onclick="subscribePush()" disabled>Pretplati se na Web Push</button>
             <div id="status"></div>
+            
+            <!-- ABOUT, USAGE & OBSERVABILITY SECTION -->
+            <div class="divider" id="info" style="margin-top: 50px;">KAKO OVO FUNKCIONIŠE?</div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">📍 1. Odaberite lokaciju</h3>
+                    <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Sistem kontinuirano prati zvanične stranice elektrodistribucija. Unesite svoju adresu ili kliknite na kartu.</p>
+                </div>
+                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">🔔 2. Web Push Pretplata</h3>
+                    <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Klikom na "Pretplati se", vaš preglednik sigurno pohranjuje ključ za obavijesti. Bez emaila ili broja telefona.</p>
+                </div>
+                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">⚡ 3. Pravovremeni Alarm</h3>
+                    <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Automatski vam šaljemo notifikaciju tačno 2 sata prije planiranog isključenja struje na vašoj adresi.</p>
+                </div>
+            </div>
+
+            <!-- THE SRE FLEX SECTION (Vertical Layout for High-Res Images) -->
+            <div style="background: #1e293b; color: white; padding: 25px; border-radius: 8px; margin-top: 40px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <h3 style="margin-top: 0; color: #38bdf8; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 10px;">🛡️ Arhitektura & Observability</h3>
+                <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 15px;">
+                    Ovaj alat je <strong>SRE (Site Reliability Engineering) portfolio projekt</strong>. Izgrađen je na modernoj arhitekturi koristeći FastAPI, PostgreSQL, i Docker uz striktne Zero-Trust sigurnosne protokole preko Cloudflare Tunnels-a.
+                </p>
+                <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 30px;">
+                    S obzirom na to da su web scraperi podložni prekidima, sistem je opremljen naprednom telemetrijom. <strong>Prometheus</strong> prikuplja metrike o brzini izvršavanja, dok <strong>Grafana Loki</strong> agregira logove u realnom vremenu.
+                </p>
+                
+                <!-- Vertical Full-Width Image Container -->
+                <div style="display: flex; flex-direction: column; gap: 25px;">
+                    <div style="background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">Grafana Telemetry Dashboard</div>
+                        <img src="/grafana-demo.jpg" alt="Grafana SRE Dashboard" style="width: 100%; height: auto; max-height: 600px; object-fit: contain; border-radius: 6px; border: 1px solid #475569;">
+                    </div>
+                    
+                    <div style="background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155;">
+                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">Automatski Telegram Alarmi</div>
+                        <img src="/telegram-demo.jpg" alt="Telegram Bot Alerts" style="width: 100%; height: auto; max-height: 600px; object-fit: contain; border-radius: 6px; border: 1px solid #475569;">
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

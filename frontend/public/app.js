@@ -6,7 +6,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let userMarker = null;
 
-// HTML Elements
 const cityInput = document.getElementById('cityInput');
 const streetInput = document.getElementById('streetInput');
 const numberInput = document.getElementById('numberInput');
@@ -24,23 +23,27 @@ function validateInputs() {
 cityInput.addEventListener('input', validateInputs);
 streetInput.addEventListener('input', validateInputs);
 
-// --- UPDATED SRE STATS LOADER ---
+// --- BULLETPROOF SRE STATS LOADER ---
 async function loadStats() {
     try {
         const res = await fetch(`${API_BASE_URL}/stats/overview`);
+        if (!res.ok) throw new Error("API Connection Failed");
+        
         const stats = await res.json();
         
         // 1. Update the Green Banner
-        document.getElementById('statOutages').innerText = stats.active_outages;
-        document.getElementById('statUsers').innerText = stats.protected_users;
+        document.getElementById('statOutages').innerText = stats.active_outages ?? '--';
+        document.getElementById('statUsers').innerText = stats.protected_users ?? '--';
         
         // 2. Update the Dark SRE Badges
-        document.getElementById('badge-outages').innerText = stats.active_outages;
-        document.getElementById('badge-provider').innerText = stats.top_distributor;
-        document.getElementById('badge-latency').innerText = stats.scraper_latency_avg;
-        document.getElementById('badge-sync').innerText = stats.last_sync;
+        document.getElementById('badge-outages').innerText = stats.active_outages ?? '--';
+        document.getElementById('badge-provider').innerText = stats.top_distributor ?? '--';
+        document.getElementById('badge-latency').innerText = stats.scraper_latency_avg ?? '--';
+        document.getElementById('badge-sync').innerText = stats.last_sync ?? '--';
     } catch (err) {
         console.error("Failed to load stats:", err);
+        document.getElementById('statOutages').innerText = '--';
+        document.getElementById('statUsers').innerText = '--';
     }
 }
 
