@@ -121,31 +121,28 @@
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">📍 1. Odaberite lokaciju</h3>
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;"> 1. Odaberite lokaciju</h3>
                     <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Sistem kontinuirano prati zvanične stranice elektrodistribucija. Unesite svoju adresu ili kliknite na kartu.</p>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">🔔 2. Web Push Pretplata</h3>
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;"> 2. Web Push Pretplata</h3>
                     <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Klikom na "Pretplati se", vaš preglednik sigurno pohranjuje ključ za obavijesti. Bez emaila ili broja telefona.</p>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;">⚡ 3. Pravovremeni Alarm</h3>
+                    <h3 style="margin-top: 0; color: #1e293b; font-size: 15px;"> 3. Pravovremeni Alarm</h3>
                     <p style="color: #475569; font-size: 13px; line-height: 1.5; margin-bottom: 0;">Automatski vam šaljemo notifikaciju tačno 2 sata prije planiranog isključenja struje na vašoj adresi.</p>
                 </div>
             </div>
 
-            <!-- THE SRE FLEX SECTION (Vertical Layout for High-Res Images) -->
+            <!-- THE SRE FLEX SECTION -->
             <div style="background: #1e293b; color: white; padding: 25px; border-radius: 8px; margin-top: 40px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                 <h3 style="margin-top: 0; color: #38bdf8; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 10px;">🛡️ Arhitektura & Observability</h3>
                 <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 15px;">
                     Ovaj alat je <strong>SRE (Site Reliability Engineering) portfolio projekt</strong>. Izgrađen je na modernoj arhitekturi koristeći FastAPI, PostgreSQL, i Docker uz striktne Zero-Trust sigurnosne protokole preko Cloudflare Tunnels-a.
                 </p>
-                <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 30px;">
-                    S obzirom na to da su web scraperi podložni prekidima, sistem je opremljen naprednom telemetrijom. <strong>Prometheus</strong> prikuplja metrike o brzini izvršavanja, dok <strong>Grafana Loki</strong> agregira logove u realnom vremenu.
-                </p>
                 
                 <!-- Vertical Full-Width Image Container -->
-                <div style="display: flex; flex-direction: column; gap: 25px;">
+                <div style="display: flex; flex-direction: column; gap: 25px; margin-bottom: 25px;">
                     <div style="background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155;">
                         <div style="color: #94a3b8; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">Grafana Telemetry Dashboard</div>
                         <img src="/grafana-demo.jpg" alt="Grafana SRE Dashboard" style="width: 100%; height: auto; max-height: 600px; object-fit: contain; border-radius: 6px; border: 1px solid #475569;">
@@ -156,6 +153,15 @@
                         <img src="/telegram-demo.jpg" alt="Telegram Bot Alerts" style="width: 100%; height: auto; max-height: 600px; object-fit: contain; border-radius: 6px; border: 1px solid #475569;">
                     </div>
                 </div>
+
+                <!-- LOKI & PROMETHEUS -->
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
+                    <h4 style="margin: 0 0 10px 0; color: #d8b4fe; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">⚙️ Prometheus & Loki</h4>
+                    <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
+                        Pravi <em>Site Reliability Engineering</em> se ne oslanja na nagađanje. Ovaj sistem koristi <strong>Prometheus</strong> za prikupljanje <em>time-series</em> metrika, prateći zdravlje API-ja i brzinu scrapinga u milisekundama. <br>Paralelno, Python mikroservisi emituju strukturirane JSON logove koje <strong>Grafana Alloy</strong> presreće direktno sa Docker <em>socketa</em> i prosljeđuje u <strong>Loki</strong>.<br>Onda, napredni <em>LogQL</em> pristup omogućava trenutnu detekciju anomalija u radu sistema, okidajući Telegram alarme čim lokalne elektrodistribucije promijene strukturu svojih web stranica – sve bez potrebe za ručnim debugom kao što je npr. SSH pristup serveru.
+                    </p>
+                </div>
+
             </div>
 
         </div>
