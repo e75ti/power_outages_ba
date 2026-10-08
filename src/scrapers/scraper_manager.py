@@ -1,6 +1,7 @@
 """Main scraper orchestrator that coordinates all provider scrapers."""
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Type, Optional
 
@@ -89,7 +90,6 @@ class ScraperManager:
     
     def _scrape_parallel(self) -> List[Outage]:
         """Run scrapers in parallel using ThreadPoolExecutor."""
-        import time  # Ensure time is imported for metrics
         
         all_outages = []
         errors = []
