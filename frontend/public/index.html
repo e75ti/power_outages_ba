@@ -23,6 +23,39 @@
         .divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 40%; height: 1px; background: #cbd5e1; }
         .divider::before { left: 0; } .divider::after { right: 0; }
         
+        /* --- SRE DASHBOARD CSS --- */
+        .sre-dashboard {
+            display: flex;
+            justify-content: space-between;
+            background: #0f172a;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            gap: 15px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .sre-badge {
+            display: flex;
+            flex-direction: column;
+        }
+        .badge-label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .badge-value {
+            font-size: 18px;
+            color: #38bdf8;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        @media (max-width: 600px) {
+            .sre-dashboard { flex-wrap: wrap; }
+            .sre-badge { width: 45%; margin-bottom: 10px; }
+        }
+        /* ------------------------- */
+
         #map { height: 350px; border-radius: 8px; border: 2px solid #e5e7eb; cursor: crosshair; }
         button { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; transition: background 0.2s; }
         button:disabled { background: #94a3b8; cursor: not-allowed; }
@@ -35,7 +68,7 @@
         <!-- Live SRE Telemetry Banner -->
         <div class="stats-banner" id="statsBanner">
             <div>🔌 Aktivna isključenja: <span id="statOutages">...</span></div>
-            <div>🛡️ Zaštićeni korisnici: <span id="statUsers">...</span></div>
+            <div>🛡 Zaštićeni korisnici: <span id="statUsers">...</span></div>
         </div>
 
         <div class="card">
@@ -60,7 +93,28 @@
             
             <div class="divider">ILI AKO NISTE SIGURNI</div>
             
-            <p class="subtitle" style="text-align: center;">Kliknite na kartu ispod i polja će se automatski popuniti.<br><i>(Za ruralna područja možda bude čudno/pogrešno izgledalo, to je ok.</i></p>
+            <p class="subtitle" style="text-align: center;">Kliknite na kartu ispod i polja će se automatski popuniti.<br><i>(Za ruralna područja možda bude čudno/pogrešno izgledalo, to je ok.)</i></p>
+            
+            <!-- SRE Dashboard HTML -->
+            <div class="sre-dashboard" id="sre-dashboard">
+                <div class="sre-badge">
+                    <span class="badge-label">Aktivna Isključenja</span>
+                    <span class="badge-value" id="badge-outages">--</span>
+                </div>
+                <div class="sre-badge">
+                    <span class="badge-label">Top Distributer</span>
+                    <span class="badge-value" id="badge-provider">--</span>
+                </div>
+                <div class="sre-badge">
+                    <span class="badge-label">Avg Latency</span>
+                    <span class="badge-value" id="badge-latency">--</span>
+                </div>
+                <div class="sre-badge">
+                    <span class="badge-label">Posljednji Sync</span>
+                    <span class="badge-value" id="badge-sync">--</span>
+                </div>
+            </div>
+
             <div id="map"></div>
             
             <button id="subBtn" onclick="subscribePush()" disabled>Pretplati se na Web Push</button>

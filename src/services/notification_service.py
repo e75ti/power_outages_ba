@@ -11,12 +11,10 @@ from src.models.outage import Outage
 from src.models.subscription import Subscription
 from src.config.settings import load_config
 
-
 class NotificationStatus(Enum):
     SUCCESS = "success"
-    EXPIRED = "expired"  # Indicates token/subscription is dead and should be deleted
+    EXPIRED = "expired"
     ERROR = "error"
-
 
 class NotificationService:
     """Service for dispatching notifications across multiple channels."""
@@ -25,21 +23,13 @@ class NotificationService:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config = load_config()
         
-        # VAPID (Web Push) config
         self.vapid_private_key = self.config.get("vapid_private_key", "")
         self.vapid_claims = {"sub": f"mailto:{self.config.get('vapid_claims_email', 'admin@example.com')}"}
-        
-        # Telegram config
         self.telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        
-        # TODO: Load Viber Bot Token / FCM Credentials here when ready
     
     def send_outage_notification(self, subscription: Subscription, outage: Outage) -> NotificationStatus:
         """Determines the best channel and sends the notification."""
-        
         payload = self._build_outage_payload(outage)
-        
-        # --- THE CHANNEL ROUTER ---
         
         # 1. Telegram
         if subscription.push_endpoint and subscription.push_endpoint.startswith("telegram:"):
@@ -48,10 +38,6 @@ class NotificationService:
         # 2. Web Push
         elif subscription.push_endpoint:
             return self._send_web_push(subscription, payload)
-        
-        # 3. Viber (Future)
-        # elif subscription.viber_id:
-        #     return self._send_viber_message(subscription, payload)
             
         return NotificationStatus.ERROR
     
@@ -81,7 +67,6 @@ class NotificationService:
             
         chat_id = subscription.push_endpoint.replace("telegram:", "")
         text = f"*{payload['title']}*\n\n{payload['body']}"
-        
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
         
         try:
@@ -91,7 +76,7 @@ class NotificationService:
                 return NotificationStatus.SUCCESS
             elif response.status_code in (400, 403):
                 self.logger.warning(f"Telegram user {chat_id} blocked the bot.")
-                return NotificationStatus.EXPIRED  # Auto-cleans the database!
+                return NotificationStatus.EXPIRED
             else:
                 self.logger.error(f"Telegram API Error: {response.text}")
                 return NotificationStatus.ERROR
@@ -114,7 +99,6 @@ class NotificationService:
                 vapid_claims=self.vapid_claims,
             )
             return NotificationStatus.SUCCESS
-            
         except WebPushException as e:
             if e.response and e.response.status_code in (404, 410):
                 self.logger.warning(f"Push token expired for {subscription.subscription_id}")

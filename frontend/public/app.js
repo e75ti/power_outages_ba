@@ -13,7 +13,6 @@ const numberInput = document.getElementById('numberInput');
 const subBtn = document.getElementById('subBtn');
 const statusDiv = document.getElementById('status');
 
-// Enable button only if required fields have text
 function validateInputs() {
     if (cityInput.value.trim().length > 1 && streetInput.value.trim().length > 1) {
         subBtn.disabled = false;
@@ -25,12 +24,21 @@ function validateInputs() {
 cityInput.addEventListener('input', validateInputs);
 streetInput.addEventListener('input', validateInputs);
 
+// --- UPDATED SRE STATS LOADER ---
 async function loadStats() {
     try {
-        const res = await fetch(`${API_BASE_URL}/stats`);
+        const res = await fetch(`${API_BASE_URL}/stats/overview`);
         const stats = await res.json();
+        
+        // 1. Update the Green Banner
         document.getElementById('statOutages').innerText = stats.active_outages;
         document.getElementById('statUsers').innerText = stats.protected_users;
+        
+        // 2. Update the Dark SRE Badges
+        document.getElementById('badge-outages').innerText = stats.active_outages;
+        document.getElementById('badge-provider').innerText = stats.top_distributor;
+        document.getElementById('badge-latency').innerText = stats.scraper_latency_avg;
+        document.getElementById('badge-sync').innerText = stats.last_sync;
     } catch (err) {
         console.error("Failed to load stats:", err);
     }
@@ -52,7 +60,6 @@ async function loadOutages() {
     }
 }
 
-// Map Click -> Reverse Geocode -> Auto-fill inputs
 map.on('click', async function(e) {
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
@@ -77,13 +84,12 @@ map.on('click', async function(e) {
         const municipality = address.city || address.town || address.village || address.municipality || "";
         const house_number = address.house_number || "";
 
-        // Auto-fill the inputs so the user can review/edit them!
         cityInput.value = municipality;
         streetInput.value = street === "BB" ? "" : street;
         numberInput.value = house_number;
         
         statusDiv.innerHTML = "";
-        validateInputs(); // Trigger validation to unlock button
+        validateInputs();
 
     } catch (err) {
         statusDiv.innerHTML = `<span style="color:red;">Greška pri lociranju sa karte. Molimo unesite ručno.</span>`;
@@ -116,10 +122,10 @@ async function subscribePush() {
                 house_number: house_number,
                 push_endpoint: subData.endpoint,
                 push_keys: subData.keys,
-                is_rural: false // Backend handles low-confidence radius anyway
+                is_rural: false
             })
         });
-         
+          
         if (res.ok) {
             statusDiv.innerHTML = "✅ Uspješno ste prijavljeni za obavijesti!";
             loadStats();
