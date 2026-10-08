@@ -2,13 +2,13 @@ name: Build and Test Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   validate:
-    name: Code, Tests, and Container Build
+    name: Code, Tests, Security, and Build
     runs-on: ubuntu-latest
 
     steps:
@@ -25,27 +25,47 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest black isort flake8
+        pip install pytest black isort flake8 yamllint pip-audit
 
+    # --- 1. PYTHON LINTING & FORMATTING ---
     - name: Check Formatting (Black)
       run: black --check src/ tests/
 
     - name: Check Import Sorting (isort)
       run: isort --check-only src/ tests/
 
-    - name: Lint Code (Flake8)
+    - name: Lint Python Code (Flake8)
       run: |
-        # Stop the build if there are Python syntax errors or undefined names
+        # Hard fail on critical syntax errors
         flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats formatting issues as warnings so it doesn't fail the build
+        # Soft fail (warn only) on styling/complexity
         flake8 src/ tests/ --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics
 
+    # --- 2. INFRASTRUCTURE LINTING ---
+    - name: Lint YAML files (yamllint)
+      run: |
+        # Soft fail (warn only) so minor spacing doesn't break the build
+        yamllint . || true
+
+    - name: Lint Dockerfile (Hadolint)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+        # Ignore info/warnings (like unpinned apt packages), ONLY fail on true syntax errors
+        failure-threshold: error
+
+    # --- 3. SECURITY AUDITING ---
+    - name: Audit Python Dependencies (pip-audit)
+      run: |
+        # Soft fail (warn only) so a newly discovered CVE doesn't instantly block deployments
+        pip-audit -r requirements.txt || true
+
+    # --- 4. UNIT TESTING ---
     - name: Run SRE Address Matching Unit Tests
       run: |
-        # PYTHONPATH=. ensures pytest can find the src/ module
         PYTHONPATH=. pytest tests/ -v
 
-    - name: Verify Docker Image Build (Security & Syntax)
+    # --- 5. BUILD VERIFICATION ---
+    - name: Verify Docker Image Build
       run: |
-        # Ensures the Dockerfile compiles with the non-root user and constraints
         docker build -t outage-scraper:test .
