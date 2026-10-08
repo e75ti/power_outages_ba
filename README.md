@@ -123,6 +123,6 @@ Run unit and regression suites:
 docker exec -it outage-api python -m pytest tests/ -v
 ```
 
-There are also pytests included in the CI workflow, and the Terraform/Ansible configurations are located in their respective directories should you want to provision remote infrastructure.
+There are also pytests included in the CI workflow, and the Terraform/Ansible configurations are located in their respective directories should you want to provision remote infrastructure. The code is linted formatted with black, imports sorted nicely with isort and linted after with flake8. I opted to not use pylint, because .pylintrc would be very big and frankly, I'd love to shadow a senior first to learn proper lining architectural choices than to make up my own which might be wrong.
 
 Good luck! Thanks for reading.
