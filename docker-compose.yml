@@ -10,13 +10,15 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     depends_on:
       postgres-db:
         condition: service_healthy
-        # Change this required to true if you are using the internal postgresql
         required: false
     environment:
-      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SCRAPE_INTERVAL_MINUTES=${SCRAPE_INTERVAL_MINUTES:-30}
       - ENABLE_GEO_MATCHING=${ENABLE_GEO_MATCHING:-true}
@@ -34,16 +36,18 @@ services:
       dockerfile: Dockerfile
     container_name: outage-api
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
     ports:
       - "8080:8080"
     depends_on:
       postgres-db:
         condition: service_healthy
-        # Change this required to true if you are using the internal postgresql
         required: false
     environment:
-      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}}
     logging:
       driver: "json-file"
       options:
@@ -60,8 +64,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-outage_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outage_secure_pass}
       POSTGRES_DB: ${POSTGRES_DB:-outage_db}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Notice: ports mapping (5432:5432) is REMOVED for security.
     volumes:
       - outage_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -77,9 +80,12 @@ services:
       dockerfile: Dockerfile
     container_name: outage-telegram-bot
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     command: python -m src.bots.telegram_bot
     environment:
-      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://outage_user:outage_secure_pass@postgres-db:5432/outage_db}
+      - DATABASE_URI=${DATABASE_URI:-postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_ADMIN_ID=${TELEGRAM_ADMIN_ID}
     depends_on:
@@ -92,13 +98,12 @@ services:
         max-size: "10m"
         max-file: "3"
 
-
   nginx:
     image: nginx:alpine
     container_name: outage-nginx
     restart: unless-stopped
     ports:
-      - "80:80"  # You can remove this line later once the tunnel is working!
+      - "80:80"  # Safe to leave while configuring Cloudflare
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./frontend/public:/usr/share/nginx/html:ro
