@@ -1,6 +1,7 @@
 import re
 from typing import Set
 
+
 class AddressMatcher:
     """Smart engine for parsing Bosnian house number formats and matching them."""
 
@@ -26,13 +27,13 @@ class AddressMatcher:
 
         expanded = set()
         parts = [p.strip() for p in raw_numbers.split(",")]
-        
+
         for part in parts:
             if not part:
                 continue
-                
+
             clean_part = cls.normalize(part)
-            
+
             # Rule 1: Pure Range (e.g., "13-15")
             range_match = re.match(r"^(\d+)-(\d+)$", clean_part)
             if range_match:
@@ -42,7 +43,7 @@ class AddressMatcher:
                 for i in range(start, end + 1):
                     expanded.add(str(i))
                 continue
-                
+
             # Rule 2: DO X (Up to X)
             do_match = re.match(r"^DO(\d+)$", clean_part)
             if do_match:
@@ -50,7 +51,7 @@ class AddressMatcher:
                 for i in range(1, end_num + 1):
                     expanded.add(str(i))
                 continue
-                
+
             # Rule 3: OD X DO Y (From X to Y)
             od_do_match = re.match(r"^OD(\d+)DO(\d+)$", clean_part)
             if od_do_match:
@@ -63,7 +64,7 @@ class AddressMatcher:
 
             # Default: add the cleaned alphanumeric string
             expanded.add(clean_part)
-            
+
         return expanded
 
     @classmethod
@@ -73,13 +74,13 @@ class AddressMatcher:
         """
         # Rule A: Provider Wildcard. If EPBiH gives no numbers, the whole street/village is down.
         if not raw_outage_numbers or raw_outage_numbers.strip() == "":
-            return True 
-            
+            return True
+
         # Rule B: User Wildcard. If the user gives no number (rural), they get alerts for the whole street/village.
         if not user_house_number or user_house_number.strip() == "":
             return True
-            
+
         normalized_user = cls.normalize(user_house_number)
         expanded_outage = cls.expand_outage_numbers(raw_outage_numbers)
-        
+
         return normalized_user in expanded_outage

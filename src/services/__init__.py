@@ -6,8 +6,8 @@ from .notification_service import NotificationService, NotificationStatus
 from .subscription_service import SubscriptionService
 
 __all__ = [
-    'GeoService',
-    'NotificationService',
-    'NotificationStatus',
-    'SubscriptionService',
+    "GeoService",
+    "NotificationService",
+    "NotificationStatus",
+    "SubscriptionService",
 ]

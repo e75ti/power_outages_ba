@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.models.outage import Outage
 from src.scrapers.base_scraper import BaseScraper
@@ -10,10 +10,10 @@ from src.scrapers.base_scraper import BaseScraper
 
 class EPHZHBScraper(BaseScraper):
     """Scraper for EPHZHB planned outages."""
-    
+
     PROVIDER_NAME = "EPHZHB"
     BASE_URL = "https://korisnicka.ephzhb.ba/EPHZHBSrvNew/GetDistOneUnsigned"
-    
+
     # Area codes mapped to region names (extracted from API response)
     AREA_CODES = {
         "652d1f24-74de-43bb-bef7-3b4fdbef2914": "Poslovnica Elektro Čitluk",
@@ -52,107 +52,114 @@ class EPHZHBScraper(BaseScraper):
         "d018ebab-0ed6-44fb-b27b-e79b271b4b19": "Poslovnica Elektro Jajce",
         "b8edde3a-0c0e-4c89-a741-15f142cd1252": "Poslovnica Elektro Dobretići",
     }
-    
+
     def __init__(self, timeout: int = 30, max_retries: int = 3):
         """Initialize the EPHZHB scraper."""
         super().__init__(timeout=timeout, max_retries=max_retries)
         # Update headers for JSON API
-        self.session.headers.update({
-            'Accept': 'application/json, text/plain, */*',
-            'Content-Type': 'application/json',
-            'Origin': 'https://korisnicka.ephzhb.ba',
-            'Referer': 'https://korisnicka.ephzhb.ba/',
-        })
-    
+        self.session.headers.update(
+            {
+                "Accept": "application/json, text/plain, */*",
+                "Content-Type": "application/json",
+                "Origin": "https://korisnicka.ephzhb.ba",
+                "Referer": "https://korisnicka.ephzhb.ba/",
+            }
+        )
+
     def scrape(self) -> List[Outage]:
         """
         Scrape outage data from EPHZHB API.
-        
+
         Query each area code separately to get all outages.
-        
+
         Returns:
             List of Outage objects
         """
         self.logger.info(f"Scraping {self.PROVIDER_NAME}...")
         outages = []
         seen_outages = set()  # Track unique outages to avoid duplicates
-        
+
         # Query each area code
         for area_code, area_name in self.AREA_CODES.items():
             try:
                 self.logger.debug(f"Fetching outages for {area_name}...")
-                
+
                 payload = {
                     "data": {
                         "platform": "3",
                         "version": "0.1",
                         "appId": "",
-                        "areaCode": area_code
+                        "areaCode": area_code,
                     }
                 }
-                
+
                 response = self._post(self.BASE_URL, json=payload)
-                
+
                 # Parse JSON response
                 try:
                     json_data = response.json()
                 except Exception as e:
                     self.logger.warning(f"Failed to parse JSON for {area_name}: {e}")
                     continue
-                
+
                 # Extract outages from distList
-                dist_list = json_data.get('distList', [])
-                
+                dist_list = json_data.get("distList", [])
+
                 if dist_list:
-                    self.logger.debug(f"Found {len(dist_list)} items in distList for {area_name}")
-                
+                    self.logger.debug(
+                        f"Found {len(dist_list)} items in distList for {area_name}"
+                    )
+
                 for item in dist_list:
                     outage = self._parse_dist_item(item)
                     if outage:
                         # Create unique key to avoid duplicates
-                        unique_key = f"{outage.area}|{outage.date_start}|{outage.time_start}"
+                        unique_key = (
+                            f"{outage.area}|{outage.date_start}|{outage.time_start}"
+                        )
                         if unique_key not in seen_outages:
                             seen_outages.add(unique_key)
                             outages.append(outage)
-                
+
                 # Rate limit between requests
                 self._rate_limit(0.3)
-                
+
             except Exception as e:
                 self.logger.warning(f"Error fetching {area_name}: {e}")
                 continue
-        
+
         self.logger.info(f"Found {len(outages)} outages from {self.PROVIDER_NAME}")
         return outages
-    
+
     def parse(self, html: str) -> List[Outage]:
         """
         Parse method for compatibility with base class.
         EPHZHB uses JSON API, so this is not the primary parsing method.
-        
+
         Args:
             html: HTML/JSON content to parse
-            
+
         Returns:
             List of Outage objects
         """
         # Try to parse as JSON first
         try:
             import json
+
             json_data = json.loads(html)
             outages = []
-            for item in json_data.get('distList', []):
+            for item in json_data.get("distList", []):
                 outage = self._parse_dist_item(item)
                 if outage:
                     outages.append(outage)
             return outages
-        except:
+        except Exception:
             return []
-    
+
     def _parse_dist_item(self, item: Dict) -> Optional[Outage]:
         """
         Parse a single item from the distList array.
-        
+
         JSON structure:
         {
             "areaName": "Poslovnica Elektro Neum",
@@ -161,50 +168,50 @@ class EPHZHBScraper(BaseScraper):
             "start": "02.02.2026 10:00",
             "end": "02.02.2026 14:00"
         }
-        
+
         Args:
             item: Dictionary containing outage data
-            
+
         Returns:
             Outage object or None if parsing fails
         """
         try:
-            area_name = item.get('areaName', '')
-            area_code = item.get('areaCode', '')
-            description = item.get('actDesc', '')
-            start_str = item.get('start', '')
-            end_str = item.get('end', '')
-            
+            area_name = item.get("areaName", "")
+            # area_code = item.get("areaCode", "")  # Unused
+            description = item.get("actDesc", "")
+            start_str = item.get("start", "")
+            end_str = item.get("end", "")
+
             if not description or not start_str:
                 self.logger.debug(f"Skipping item with missing data: {item}")
                 return None
-            
+
             # Parse start datetime
             date_start, time_start = self._parse_datetime_string(start_str)
-            
+
             # Parse end datetime
             _, time_end = self._parse_datetime_string(end_str)
-            
+
             if not date_start:
                 self.logger.debug(f"Could not parse start date from: {start_str}")
                 return None
-            
+
             # Extract municipality from area name
             municipality = area_name.replace("Poslovnica Elektro ", "")
-            
+
             # Extract facility/line name and affected areas from description
             # Format: "DV 10 kV Hutovo (naselja Vranjevo Selo, Meteriz, ...)"
             facility = ""
             streets = description
-            
+
             # Try to extract facility name (before parenthesis)
-            paren_match = re.match(r'^([^(]+)\((.+)\)$', description)
+            paren_match = re.match(r"^([^(]+)\((.+)\)$", description)
             if paren_match:
                 facility = paren_match.group(1).strip()
                 streets = paren_match.group(2).strip()
                 # Remove "naselja" prefix if present
-                streets = re.sub(r'^naselja\s+', '', streets, flags=re.IGNORECASE)
-            
+                streets = re.sub(r"^naselja\s+", "", streets, flags=re.IGNORECASE)
+
             return Outage(
                 provider=self.PROVIDER_NAME,
                 region=area_name,
@@ -217,30 +224,32 @@ class EPHZHBScraper(BaseScraper):
                 reason=facility,  # Use facility as reason
                 raw_text=f"{area_name}: {description} ({start_str} - {end_str})",
             )
-            
+
         except Exception as e:
             self.logger.debug(f"Error parsing dist item: {e} - Item: {item}")
             return None
-    
-    def _parse_datetime_string(self, datetime_str: str) -> Tuple[Optional[datetime], Optional[str]]:
+
+    def _parse_datetime_string(
+        self, datetime_str: str
+    ) -> Tuple[Optional[datetime], Optional[str]]:
         """
         Parse a datetime string like "02.02.2026 10:00".
-        
+
         Args:
             datetime_str: Datetime string in format "DD.MM.YYYY HH:MM"
-            
+
         Returns:
             Tuple of (datetime object, time string "HH:MM")
         """
         if not datetime_str:
             return None, None
-        
+
         datetime_str = datetime_str.strip()
-        
+
         # Pattern: DD.MM.YYYY HH:MM
-        pattern = r'(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})'
+        pattern = r"(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})"
         match = re.match(pattern, datetime_str)
-        
+
         if match:
             day, month, year, hour, minute = match.groups()
             try:
@@ -250,11 +259,11 @@ class EPHZHBScraper(BaseScraper):
             except ValueError as e:
                 self.logger.debug(f"Invalid date values: {e}")
                 return None, None
-        
+
         # Try alternative pattern without time
-        date_pattern = r'(\d{1,2})\.(\d{1,2})\.(\d{4})'
+        date_pattern = r"(\d{1,2})\.(\d{1,2})\.(\d{4})"
         date_match = re.match(date_pattern, datetime_str)
-        
+
         if date_match:
             day, month, year = date_match.groups()
             try:
@@ -262,11 +271,11 @@ class EPHZHBScraper(BaseScraper):
                 return date_obj, None
             except ValueError:
                 pass
-        
+
         return None, None
-    
+
     def _clean_text(self, text: str) -> str:
         """Clean text by removing extra whitespace."""
         if not text:
             return ""
-        return ' '.join(text.split()).strip()
+        return " ".join(text.split()).strip()
