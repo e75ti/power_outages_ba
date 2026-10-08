@@ -1,3 +1,27 @@
+// --- DARK MODE THEME TOGGLE ---
+const themeToggle = document.getElementById('themeToggle');
+const currentTheme = localStorage.getItem('theme');
+
+// Load saved preference
+if (currentTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    themeToggle.innerText = '☀️';
+}
+
+// Toggle on click
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    let theme = 'light';
+    if (document.body.classList.contains('dark-mode')) {
+        theme = 'dark';
+        themeToggle.innerText = '☀️';
+    } else {
+        themeToggle.innerText = '🌙';
+    }
+    localStorage.setItem('theme', theme);
+});
+// ------------------------------
+
 const PUBLIC_VAPID_KEY = 'BEDB1bl2ezxa6lOPhctgVecX6hNRZNQt6AY_n5Q7Cshi7hVcJkUFpBUWxS04m1pw1E9R4SO_Y0aiszjYBMCc2co';
 const API_BASE_URL = '/api/v1';
 
@@ -23,7 +47,6 @@ function validateInputs() {
 cityInput.addEventListener('input', validateInputs);
 streetInput.addEventListener('input', validateInputs);
 
-// --- BULLETPROOF SRE STATS LOADER ---
 async function loadStats() {
     try {
         const res = await fetch(`${API_BASE_URL}/stats/overview`);
@@ -31,11 +54,9 @@ async function loadStats() {
         
         const stats = await res.json();
         
-        // 1. Update the Green Banner
         document.getElementById('statOutages').innerText = stats.active_outages ?? '--';
         document.getElementById('statUsers').innerText = stats.protected_users ?? '--';
         
-        // 2. Update the Dark SRE Badges
         document.getElementById('badge-outages').innerText = stats.active_outages ?? '--';
         document.getElementById('badge-provider').innerText = stats.top_distributor ?? '--';
         document.getElementById('badge-latency').innerText = stats.scraper_latency_avg ?? '--';
