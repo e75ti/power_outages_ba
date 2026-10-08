@@ -1,22 +1,25 @@
 // --- DARK MODE THEME TOGGLE ---
 const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const themeText = document.getElementById('themeText');
 const currentTheme = localStorage.getItem('theme');
 
-// Load saved preference
 if (currentTheme === 'dark') {
     document.body.classList.add('dark-mode');
-    themeToggle.innerText = '☀️';
+    themeIcon.innerText = '☀️';
+    themeText.innerText = 'Svijetla';
 }
 
-// Toggle on click
 themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     let theme = 'light';
     if (document.body.classList.contains('dark-mode')) {
         theme = 'dark';
-        themeToggle.innerText = '☀️';
+        themeIcon.innerText = '☀️';
+        themeText.innerText = 'Svijetla';
     } else {
-        themeToggle.innerText = '🌙';
+        themeIcon.innerText = '🌙';
+        themeText.innerText = 'Tamna';
     }
     localStorage.setItem('theme', theme);
 });
@@ -47,6 +50,7 @@ function validateInputs() {
 cityInput.addEventListener('input', validateInputs);
 streetInput.addEventListener('input', validateInputs);
 
+// --- BULLETPROOF SRE STATS LOADER ---
 async function loadStats() {
     try {
         const res = await fetch(`${API_BASE_URL}/stats/overview`);

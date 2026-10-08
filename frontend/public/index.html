@@ -43,15 +43,37 @@
         
         /* Navigation Header */
         .top-nav { background: var(--bg-nav); color: white; padding: 15px 20px; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.3s; }
-        .nav-container { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-        .nav-logo { font-weight: bold; font-size: 1.2em; color: #38bdf8; }
-        .nav-links { display: flex; align-items: center; }
-        .nav-links a { color: #cbd5e1; text-decoration: none; margin-left: 15px; font-size: 0.9em; font-weight: 500; transition: color 0.2s; }
+        .nav-container { max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .nav-logo { font-weight: bold; font-size: 1.3em; color: #38bdf8; order: 1; }
+        
+        .nav-links { display: flex; align-items: center; gap: 25px; order: 2; }
+        .nav-links a { color: #cbd5e1; text-decoration: none; font-size: 1.15em; font-weight: 600; transition: color 0.2s; }
         .nav-links a:hover { color: white; }
         
         /* Theme Toggle Button */
-        .theme-toggle { background: none; border: none; cursor: pointer; font-size: 1.2em; margin-left: 15px; padding: 0; transition: transform 0.2s; }
-        .theme-toggle:hover { transform: scale(1.1); }
+        .theme-toggle {
+            order: 3;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .theme-toggle:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
+
+        /* Responsive Mobile Layout */
+        @media (max-width: 600px) { 
+            .nav-links { order: 3; width: 100%; justify-content: center; margin-top: 15px; gap: 15px; }
+            .nav-links a { font-size: 1.05em; }
+            .theme-toggle { order: 2; }
+        }
         
         .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
         .stats-banner { background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -85,9 +107,9 @@
             filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
 
-        button { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; transition: background 0.2s; }
-        button:disabled { background: #94a3b8; cursor: not-allowed; }
-        button:hover:not(:disabled) { background: #1d4ed8; }
+        button.primary-btn { background: #2563eb; color: white; border: none; padding: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; transition: background 0.2s; }
+        button.primary-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+        button.primary-btn:hover:not(:disabled) { background: #1d4ed8; }
         #status { margin-top: 15px; font-weight: bold; text-align: center; }
     </style>
 </head>
@@ -96,13 +118,18 @@
     <!-- TOP NAVIGATION -->
     <nav class="top-nav">
         <div class="nav-container">
-            <span class="nav-logo">⚡ BiH Power Alerts</span>
+            <span class="nav-logo">⚡BiH Power Alerts</span>
+            
             <div class="nav-links">
                 <a href="#prijava">Prijava</a>
                 <a href="#karta">Karta</a>
                 <a href="#info">O Projektu</a>
-                <button id="themeToggle" class="theme-toggle" title="Promijeni temu">🌙</button>
             </div>
+
+            <button id="themeToggle" class="theme-toggle" title="Promijeni temu">
+                <span id="themeIcon">🌙</span>
+                <span id="themeText">Tamna</span>
+            </button>
         </div>
     </nav>
 
@@ -159,7 +186,7 @@
 
             <div id="map"></div>
             
-            <button id="subBtn" onclick="subscribePush()" disabled>Pretplati se na Web Push</button>
+            <button id="subBtn" class="primary-btn" onclick="subscribePush()" disabled>Pretplati se na Web Push</button>
             <div id="status"></div>
             
             <!-- ABOUT, USAGE & OBSERVABILITY SECTION -->
@@ -167,22 +194,22 @@
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
                 <div style="background: var(--bg-info); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6; transition: background 0.3s;">
-                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;"> 1. Odaberite lokaciju</h3>
+                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;">📍 1. Odaberite lokaciju</h3>
                     <p style="color: var(--text-subtitle); font-size: 13px; line-height: 1.5; margin-bottom: 0; transition: color 0.3s;">Sistem kontinuirano prati zvanične stranice elektrodistribucija. Unesite svoju adresu ili kliknite na kartu.</p>
                 </div>
                 <div style="background: var(--bg-info); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981; transition: background 0.3s;">
-                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;"> 2. Web Push Pretplata</h3>
+                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;">🔔 2. Web Push Pretplata</h3>
                     <p style="color: var(--text-subtitle); font-size: 13px; line-height: 1.5; margin-bottom: 0; transition: color 0.3s;">Klikom na "Pretplati se", vaš preglednik sigurno pohranjuje ključ za obavijesti. Bez emaila ili broja telefona.</p>
                 </div>
                 <div style="background: var(--bg-info); padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; transition: background 0.3s;">
-                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;"> 3. Pravovremeni Alarm</h3>
+                    <h3 style="margin-top: 0; color: var(--text-main); font-size: 15px; transition: color 0.3s;">⚡ 3. Pravovremeni Alarm</h3>
                     <p style="color: var(--text-subtitle); font-size: 13px; line-height: 1.5; margin-bottom: 0; transition: color 0.3s;">Automatski vam šaljemo notifikaciju tačno 2 sata prije planiranog isključenja struje na vašoj adresi.</p>
                 </div>
             </div>
 
             <!-- THE SRE FLEX SECTION (Always stays dark!) -->
             <div style="background: #1e293b; color: white; padding: 25px; border-radius: 8px; margin-top: 40px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-                <h3 style="margin-top: 0; color: #38bdf8; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 10px;">🛡 Arhitektura & Observability</h3>
+                <h3 style="margin-top: 0; color: #38bdf8; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 10px;">🛡️ Arhitektura & Observability</h3>
                 <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 15px;">
                     Ovaj alat je <strong>SRE (Site Reliability Engineering) portfolio projekt</strong>. Izgrađen je na modernoj arhitekturi koristeći FastAPI, PostgreSQL, i Docker uz striktne Zero-Trust sigurnosne protokole preko Cloudflare Tunnels-a.
                 </p>
@@ -202,7 +229,7 @@
 
                 <!-- LOKI & PROMETHEUS -->
                 <div style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
-                    <h4 style="margin: 0 0 10px 0; color: #d8b4fe; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">⚙ Prometheus & Loki</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #d8b4fe; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">⚙️ Prometheus & Loki</h4>
                     <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
                         Pravi <em>Site Reliability Engineering</em> se ne oslanja na nagađanje. Ovaj sistem koristi <strong>Prometheus</strong> za prikupljanje <em>time-series</em> metrika, prateći zdravlje API-ja i brzinu scrapinga u milisekundama. <br>Paralelno, Python mikroservisi emituju strukturirane JSON logove koje <strong>Grafana Alloy</strong> presreće direktno sa Docker <em>socketa</em> i prosljeđuje u <strong>Loki</strong>.<br>Onda, napredni <em>LogQL</em> pristup omogućava trenutnu detekciju anomalija u radu sistema, okidajući Telegram alarme čim lokalne elektrodistribucije promijene strukturu svojih web stranica – sve bez potrebe za ručnim debugom kao što je npr. SSH pristup serveru.
                     </p>
