@@ -1,6 +1,6 @@
 # BiH Power Alerts (SRE Portfolio Project)
 
-![Build Status](https://github.com/USERNAME/REPO_NAME/actions/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/e75ti/power_outages_ba/actions/workflows/ci.yml/badge.svg)
 ![Python 3.13](https://img.shields.io/badge/Python-3.13-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-00a393.svg)
 ![Docker](https://img.shields.io/badge/Docker-Immutable-2496ED.svg)
@@ -19,7 +19,7 @@ What started as a simple Python script to scratch my own itch evolved into this 
 
 ## Live Demo & Screenshots
 
-**Live Application:** [outages.yourdomain.ba](https://outages.yourdomain.ba)
+**Live Application:** [struja.ituco.dev](https://struja.ituco.dev)
 
 *(Note: Add your actual screenshots to a `docs/` folder and link them here before publishing)*
 - **[Screenshot: Public PWA and Interactive Map UI]** - Shows the Leaflet heatmap and SRE stats banner.
@@ -31,7 +31,7 @@ What started as a simple Python script to scratch my own itch evolved into this 
 ## System Architecture
 
 ```mermaid
-graph LR
+graph TD
     subgraph Host Machine Firewall - 0 Inbound Ports Open
         CF[cloudflared] -->|internal network| Nginx[nginx:80]
         Nginx -->|internal network| UI[Frontend Assets]
