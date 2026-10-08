@@ -1,15 +1,28 @@
-// --- DARK MODE THEME TOGGLE ---
+// --- DARK MODE THEME TOGGLE (SA SISTEMSKOM DETEKCIJOM) ---
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon = document.getElementById('themeIcon');
 const themeText = document.getElementById('themeText');
-const currentTheme = localStorage.getItem('theme');
 
+// 1. Check if user previously explicitly saved a preference
+let currentTheme = localStorage.getItem('theme');
+
+// 2. If no saved preference, check their OS/Browser settings!
+if (!currentTheme) {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        currentTheme = 'dark';
+    } else {
+        currentTheme = 'light';
+    }
+}
+
+// 3. Apply the theme on initial load
 if (currentTheme === 'dark') {
     document.body.classList.add('dark-mode');
     themeIcon.innerText = '☀️';
     themeText.innerText = 'Svijetla';
 }
 
+// 4. Toggle on click and save their manual override
 themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     let theme = 'light';
@@ -23,7 +36,7 @@ themeToggle.addEventListener('click', () => {
     }
     localStorage.setItem('theme', theme);
 });
-// ------------------------------
+// ---------------------------------------------------------
 
 const PUBLIC_VAPID_KEY = 'BEDB1bl2ezxa6lOPhctgVecX6hNRZNQt6AY_n5Q7Cshi7hVcJkUFpBUWxS04m1pw1E9R4SO_Y0aiszjYBMCc2co';
 const API_BASE_URL = '/api/v1';
@@ -58,9 +71,11 @@ async function loadStats() {
         
         const stats = await res.json();
         
+        // 1. Update the Green Banner
         document.getElementById('statOutages').innerText = stats.active_outages ?? '--';
         document.getElementById('statUsers').innerText = stats.protected_users ?? '--';
         
+        // 2. Update the Dark SRE Badges
         document.getElementById('badge-outages').innerText = stats.active_outages ?? '--';
         document.getElementById('badge-provider').innerText = stats.top_distributor ?? '--';
         document.getElementById('badge-latency').innerText = stats.scraper_latency_avg ?? '--';
