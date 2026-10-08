@@ -32,7 +32,7 @@ jobs:
       run: black --check src/ tests/
 
     - name: Check Import Sorting (isort)
-      run: isort --check-only src/ tests/
+      run: isort --profile black --check-only src/ tests/
 
     - name: Lint Python Code (Flake8)
       run: |
@@ -43,29 +43,22 @@ jobs:
 
     # --- 2. INFRASTRUCTURE LINTING ---
     - name: Lint YAML files (yamllint)
-      run: |
-        # Soft fail (warn only) so minor spacing doesn't break the build
-        yamllint . || true
+      run: yamllint . || true
 
     - name: Lint Dockerfile (Hadolint)
       uses: hadolint/hadolint-action@v3.1.0
       with:
         dockerfile: Dockerfile
-        # Ignore info/warnings (like unpinned apt packages), ONLY fail on true syntax errors
         failure-threshold: error
 
     # --- 3. SECURITY AUDITING ---
     - name: Audit Python Dependencies (pip-audit)
-      run: |
-        # Soft fail (warn only) so a newly discovered CVE doesn't instantly block deployments
-        pip-audit -r requirements.txt || true
+      run: pip-audit -r requirements.txt || true
 
     # --- 4. UNIT TESTING ---
     - name: Run SRE Address Matching Unit Tests
-      run: |
-        PYTHONPATH=. pytest tests/ -v
+      run: PYTHONPATH=. pytest tests/ -v
 
     # --- 5. BUILD VERIFICATION ---
     - name: Verify Docker Image Build
-      run: |
-        docker build -t outage-scraper:test .
+      run: docker build -t outage-scraper:test .

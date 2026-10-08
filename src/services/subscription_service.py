@@ -6,8 +6,7 @@ from typing import Dict, List
 from src.database.db_manager import DatabaseManager
 from src.models.outage import Outage
 from src.services.geo_service import GeoService
-from src.services.notification_service import (NotificationService,
-                                               NotificationStatus)
+from src.services.notification_service import NotificationService, NotificationStatus
 
 
 class SubscriptionService:
