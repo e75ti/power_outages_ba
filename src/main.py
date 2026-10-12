@@ -71,24 +71,15 @@ def run_reminders_job():
     try:
         db_manager = DatabaseManager()
         subscription_service = SubscriptionService(db_manager)
+        active_outages = db_manager.get_upcoming_outages()
 
-        with db_manager.Session() as session:
-            today_midnight = datetime.now(timezone.utc).replace(
-                hour=0, minute=0, second=0, microsecond=0
+        if active_outages:
+            stats = subscription_service.process_reminders(active_outages)
+            logger.info(
+                f"Reminders processed. Sent: {stats.get('reminders_sent', 0)}"
             )
-            active_outages = (
-                session.query(OutageModel)
-                .filter(OutageModel.date_start >= today_midnight)
-                .all()
-            )
-
-            if active_outages:
-                stats = subscription_service.process_reminders(active_outages)
-                logger.info(
-                    f"Reminders processed. Sent: {stats.get('reminders_sent', 0)}"
-                )
-            else:
-                logger.info("No active outages found for reminders.")
+        else:
+            logger.info("No active outages found for reminders.")
     except Exception as e:
         logger.error(f"Reminder job failed: {e}", exc_info=True)
 
