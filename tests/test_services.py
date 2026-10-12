@@ -1,6 +1,6 @@
 # tests/test_services.py
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from src.models.outage import Outage
@@ -22,7 +22,7 @@ class TestSubscriptionService(unittest.TestCase):
             region="SA",
             municipality="Ilidža",
             area="Unska",
-            date_start=datetime.now(),
+            date_start=datetime.now(timezone.utc),
         )
         sub = Subscription(
             street_name="Unska", municipality="Ilidža", push_endpoint="mock_url"
@@ -51,7 +51,7 @@ class TestSubscriptionService(unittest.TestCase):
             region="SA",
             municipality="Ilidža",
             area="Unska",
-            date_start=datetime.now(),
+            date_start=datetime.now(timezone.utc),
         )
         sub = Subscription(
             street_name="Unska", municipality="Ilidža", push_endpoint="mock_url"

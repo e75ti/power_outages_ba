@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 from urllib.parse import urljoin
 
@@ -118,9 +118,9 @@ class ElektroHercegovinaScraper(BaseScraper):
                 try:
                     date_start = datetime.strptime(date_match.group(1), "%d.%m.%Y")
                 except ValueError:
-                    date_start = datetime.now()
+                    date_start = datetime.now(timezone.utc)
             else:
-                date_start = datetime.now()
+                date_start = datetime.now(timezone.utc)
 
             if time_match:
                 time_start = time_match.group(1).replace(".", ":")

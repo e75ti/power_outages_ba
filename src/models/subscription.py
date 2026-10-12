@@ -3,9 +3,12 @@
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+def utc_now():
+    """Returns a timezone-aware current UTC datetime."""
+    return datetime.now(timezone.utc)
 
 @dataclass
 class Subscription:
@@ -14,7 +17,7 @@ class Subscription:
     # Required fields
     street_name: str
     municipality: str
-    house_number: str = ""  # <--- NEW SRE FEATURE
+    house_number: str = ""
 
     # Web Push fields
     push_endpoint: str = ""
@@ -31,8 +34,8 @@ class Subscription:
 
     # Metadata
     subscription_id: str = field(default="", init=False)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
 
     # Notification tracking
     last_notified_at: Optional[datetime] = None
@@ -75,11 +78,11 @@ class Subscription:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Subscription":
-        created_at = datetime.now()
+        created_at = utc_now()
         if data.get("created_at"):
             created_at = datetime.fromisoformat(data["created_at"])
 
-        updated_at = datetime.now()
+        updated_at = utc_now()
         if data.get("updated_at"):
             updated_at = datetime.fromisoformat(data["updated_at"])
 
@@ -119,9 +122,9 @@ class Subscription:
         return self.municipality.lower().strip()
 
     def record_notification(self) -> None:
-        self.last_notified_at = datetime.now()
+        self.last_notified_at = utc_now()
         self.notification_count += 1
-        self.updated_at = datetime.now()
+        self.updated_at = utc_now()
 
     def __str__(self) -> str:
         status = "🟢" if self.is_active else "🔴"

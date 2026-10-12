@@ -3,7 +3,7 @@
 import logging
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import schedule
 from prometheus_client import start_http_server
@@ -30,7 +30,7 @@ def setup_logging(level: str = "INFO") -> None:
 def run_scrape_job():
     logger = logging.getLogger("ScrapeJob")
     logger.info("=" * 60)
-    logger.info(f"Starting scheduled scrape at {datetime.now().isoformat()}")
+    logger.info(f"Starting scheduled scrape at {datetime.now(timezone.utc).isoformat()}")
     logger.info("=" * 60)
     try:
         scraper_manager = ScraperManager()
@@ -73,7 +73,7 @@ def run_reminders_job():
         subscription_service = SubscriptionService(db_manager)
 
         with db_manager.Session() as session:
-            today_midnight = datetime.now().replace(
+            today_midnight = datetime.now(timezone.utc).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             active_outages = (
@@ -100,7 +100,7 @@ def main():
 
     logger.info("=" * 60)
     logger.info("Electricity Outage Scraper Starting")
-    logger.info(f"Current time: {datetime.now().isoformat()}")
+    logger.info(f"Current time: {datetime.now(timezone.utc).isoformat()}")
     logger.info("=" * 60)
 
     interval_minutes = config.get("scrape_interval_minutes", 120)

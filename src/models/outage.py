@@ -3,9 +3,12 @@
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
+def utc_now():
+    """Returns a timezone-aware current UTC datetime."""
+    return datetime.now(timezone.utc)
 
 @dataclass
 class Outage:
@@ -32,7 +35,7 @@ class Outage:
     raw_text: str = ""
 
     # Metadata
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=utc_now)
     coordinates: Optional[tuple] = None  # (latitude, longitude)
 
     # Computed fields
@@ -87,7 +90,7 @@ class Outage:
         if data.get("date_end"):
             date_end = datetime.fromisoformat(data["date_end"])
 
-        created_at = datetime.now()
+        created_at = utc_now()
         if data.get("created_at"):
             created_at = datetime.fromisoformat(data["created_at"])
 
@@ -139,7 +142,7 @@ class Outage:
 
     def is_active(self, current_time: Optional[datetime] = None) -> bool:
         if current_time is None:
-            current_time = datetime.now()
+            current_time = utc_now()
         start = self.get_full_datetime_start()
         end = self.get_full_datetime_end()
         if not start:

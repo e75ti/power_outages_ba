@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -99,9 +99,9 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     response = await call_next(request)
-    duration = (datetime.now() - start_time).total_seconds()
+    duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
     if request.url.path != "/health":
         client_ip = request.headers.get(
@@ -127,12 +127,12 @@ def get_db():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/api/v1/outages/active", response_model=List[OutageResponse])
 def get_active_outages(db: Session = Depends(get_db)):
-    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     return (
         db.query(OutageModel)
         .filter(
@@ -167,7 +167,7 @@ def create_subscription(sub_req: SubscriptionRequest):
 @app.get("/api/v1/stats/overview")
 def get_sre_stats(db: Session = Depends(get_db)):
     """SRE Live Telemetry for the Frontend Badges & Banner."""
-    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
     active_count = (
         db.query(OutageModel)
@@ -197,5 +197,5 @@ def get_sre_stats(db: Session = Depends(get_db)):
         "protected_users": active_subs,
         "top_distributor": f"{top_provider} ({top_count})",
         "scraper_latency_avg": "2.08s",
-        "last_sync": datetime.now().strftime("%H:%M:%S"),
+        "last_sync": datetime.now(timezone.utc).strftime("%H:%M:%S"),
     }

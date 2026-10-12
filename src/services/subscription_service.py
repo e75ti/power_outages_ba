@@ -64,14 +64,14 @@ class SubscriptionService:
     def process_reminders(self, all_active_outages) -> Dict[str, int]:
         """Runs periodically to warn users of outages starting in the next 2 hours."""
         import re
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         stats = {"reminders_sent": 0}
         subscriptions = self.db.get_all_active_subscriptions()
         if not subscriptions or not all_active_outages:
             return stats
 
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         for outage in all_active_outages:
             if not getattr(outage, "date_start", None) or not getattr(
