@@ -10,7 +10,7 @@ from prometheus_client import start_http_server
 from pythonjsonlogger.json import JsonFormatter
 
 from src.config.settings import load_config
-from src.database.db_manager import DatabaseManager, OutageModel
+from src.database.db_manager import DatabaseManager
 from src.geocoder import OutageGeocoder
 from src.scrapers.scraper_manager import ScraperManager
 from src.services.subscription_service import SubscriptionService
@@ -30,7 +30,9 @@ def setup_logging(level: str = "INFO") -> None:
 def run_scrape_job():
     logger = logging.getLogger("ScrapeJob")
     logger.info("=" * 60)
-    logger.info(f"Starting scheduled scrape at {datetime.now(timezone.utc).isoformat()}")
+    logger.info(
+        f"Starting scheduled scrape at {datetime.now(timezone.utc).isoformat()}"
+    )
     logger.info("=" * 60)
     try:
         scraper_manager = ScraperManager()
@@ -75,9 +77,7 @@ def run_reminders_job():
 
         if active_outages:
             stats = subscription_service.process_reminders(active_outages)
-            logger.info(
-                f"Reminders processed. Sent: {stats.get('reminders_sent', 0)}"
-            )
+            logger.info(f"Reminders processed. Sent: {stats.get('reminders_sent', 0)}")
         else:
             logger.info("No active outages found for reminders.")
     except Exception as e:

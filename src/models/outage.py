@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
+
 def utc_now():
     """Returns a timezone-aware current UTC datetime."""
     return datetime.now(timezone.utc)
+
 
 @dataclass
 class Outage:

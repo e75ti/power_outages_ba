@@ -132,7 +132,9 @@ def health_check():
 
 @app.get("/api/v1/outages/active", response_model=List[OutageResponse])
 def get_active_outages(db: Session = Depends(get_db)):
-    today_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     return (
         db.query(OutageModel)
         .filter(
@@ -167,7 +169,9 @@ def create_subscription(sub_req: SubscriptionRequest):
 @app.get("/api/v1/stats/overview")
 def get_sre_stats(db: Session = Depends(get_db)):
     """SRE Live Telemetry for the Frontend Badges & Banner."""
-    today_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
     active_count = (
         db.query(OutageModel)
