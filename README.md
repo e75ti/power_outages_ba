@@ -21,6 +21,12 @@ Code is fully Python based. Linted with Github CI, Black, isort and flake8. :D O
 
 Web side is served via nginx, but of course can be changed. :D
 
+Btw speaking of CI, I also do yamlint, hadolint (Dockerfile and all yaml files linting and checking it's compatible and Docker well structured).
+
+And most importantly pip-audit - I run pip audit to check old and also I have local tests I run via `pytest tests/` and in the end I verify the build `docker build -t outage-scraper:test .`.
+
+Cool right :D
+
 ---
 
 ## Why even build it though?

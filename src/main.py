@@ -52,12 +52,27 @@ def run_scrape_job():
             logger.info(f"Notifications: {notification_stats}")
 
         logger.info("Geocoding outage locations for the map...")
+        geocode_count = 0
+
         for outage in outages:
             if not getattr(outage, "coordinates", None):
+                # HTTP 429: Cool off, do 30 new adds max per fetch
+                if geocode_count >= 30:
+                    logger.warning(
+                        "Dosegnut limit geocodiranja (30) za ovaj ciklus. Ostalo prebacujem za idući run."
+                    )
+                    break
+
                 lat, lon = geocoder.get_coordinates(outage.municipality, outage.area)
+                geocode_count += 1
+
                 if lat and lon:
                     outage.coordinates = (lat, lon)
-                    db_manager.save_outages([outage])
+                else:
+                    # NEGATIVE CACHING: Zabilježi -999.0 da ne bi ponovo tražili ovu istu nepostojeću adresu idući put
+                    outage.coordinates = (-999.0, -999.0)
+                db_manager.save_outages([outage])
+                time.sleep(1.5)
 
         logger.info("Cleanup: Skipped (Historical data retention set to INFINITE)")
         logger.info("=" * 60)
