@@ -128,13 +128,27 @@ class NotificationService:
             )
             return NotificationStatus.SUCCESS
         except WebPushException as e:
-            if e.response and e.response.status_code in (404, 410):
+            # Dodao 401 i 403 za brisanje starih VAPID/korumpiranih ključeva
+            if e.response is not None and e.response.status_code in (
+                401,
+                403,
+                404,
+                410,
+            ):
                 self.logger.warning(
-                    f"Push token expired for {subscription.subscription_id}"
+                    f"Push token expired/invalid for {subscription.subscription_id}"
                 )
                 return NotificationStatus.EXPIRED
+
             self.logger.error(f"Push failed: {e}")
             return NotificationStatus.ERROR
         except Exception as e:
+            # Hvatam 'Invalid p256dh key' greške i brisanje istih
+            if "p256dh" in str(e).lower() or "vapid" in str(e).lower():
+                self.logger.warning(
+                    f"Corrupted keys for {subscription.subscription_id}, removing."
+                )
+                return NotificationStatus.EXPIRED
+
             self.logger.error(f"Unexpected error: {e}")
             return NotificationStatus.ERROR
