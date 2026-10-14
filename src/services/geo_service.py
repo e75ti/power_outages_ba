@@ -20,6 +20,12 @@ class GeoService:
 
     MAJOR_CITIES = [
         "sarajevo",
+        "novo sarajevo",
+        "novi grad",
+        "ilidža",
+        "ilidza",
+        "centar",
+        "stari grad",
         "banja luka",
         "banjaluka",
         "tuzla",
@@ -140,8 +146,10 @@ class GeoService:
         distance = geodesic(sub_coords, outage_coords).kilometers
 
         # SRE LOGIC: Dynamic Radius
-        if subscription.is_rural or not self._is_major_city(subscription.municipality):
+        if subscription.is_rural:
             radius = 5.0  # Rural/Town fallback
+        elif self._is_major_city(subscription.municipality):
+            radius = 0.2
         else:
             radius = 0.5  # Urban strict fallback
 
