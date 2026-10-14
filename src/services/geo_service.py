@@ -50,9 +50,8 @@ class GeoService:
         self.config = load_config()
         self.db = db_manager
 
-        user_agent = self.config.get(
-            "nominatim_user_agent", "electricity-outage-scraper-ba"
-        )
+        user_email = self.config.get("geolocator_email", "admin@domena.com")
+        user_agent = f"ElectricityOutageScraper/3.1 (BiH Infrastructure Monitor; contact: {user_email})"
         self.geolocator = Nominatim(user_agent=user_agent, timeout=10)
 
         self.enable_geo_matching = self.config.get("enable_geo_matching", True)
@@ -165,8 +164,12 @@ class GeoService:
     def _geocode_location(
         self, street: str, municipality: str
     ) -> Optional[Tuple[float, float]]:
-        query = f"{street}, {municipality}, Bosnia and Herzegovina"
+        import re
 
+        clean_street = re.split(r"\d|,", street)[0].strip()
+        if not clean_street or len(clean_street) < 2:
+            clean_street = street.split(",")[0].strip()
+        query = f"{clean_street}, {municipality}, Bosnia and Herzegovina"
         if self.db:
             cached = self.db.get_cached_coordinates(query)
             if cached:
@@ -185,7 +188,11 @@ class GeoService:
                 return coords
         except (GeocoderTimedOut, GeocoderServiceError) as e:
             self.logger.warning(f"Geocoding failed for {query}: {e}")
-
+            if "400" in str(e) and self.db:
+                self.logger.warning(
+                    f"For the same {query}, {e} I wrote -999 lat/lon for this query since it returned 400."
+                )
+                self.db.cache_coordinates(query, -999.0, -999.0)
         return None
 
     def _is_major_city(self, municipality: str) -> bool:
