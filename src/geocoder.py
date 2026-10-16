@@ -74,7 +74,7 @@ class OutageGeocoder:
         clean = clean.split("-")[0].strip()
 
         # 6. Cut to first numb only
-        clean = re.split(r"\d", clean)[0].strip()
+        clean = re.split(r"(?i)(\s+[a-z]?\d+[a-z]?\b|\bdo\s*\d+)", clean)[0].strip()
 
         clean = re.sub(r"(?i)\b(bb|do|iza|ispod|bb\.|b\.b\.)\b", "", clean).strip()
         clean = clean.strip(" ,.-/")
