@@ -51,7 +51,7 @@ class Subscription:
         key_parts = [
             self.push_endpoint,
             self.street_name.lower(),
-            self.house_number.lower(),  # <--- Added to your deduplication hash!
+            self.house_number.lower(),
             self.municipality.lower(),
         ]
         key_string = "|".join(key_parts)
@@ -61,7 +61,7 @@ class Subscription:
         return {
             "subscription_id": self.subscription_id,
             "street_name": self.street_name,
-            "house_number": self.house_number,  # <--- NEW SRE FEATURE
+            "house_number": self.house_number,
             "municipality": self.municipality,
             "push_endpoint": self.push_endpoint,
             "push_keys": self.push_keys,
@@ -99,7 +99,7 @@ class Subscription:
         sub = cls(
             street_name=data.get("street_name", ""),
             municipality=data.get("municipality", ""),
-            house_number=data.get("house_number", ""),  # <--- NEW SRE FEATURE
+            house_number=data.get("house_number", ""),
             push_endpoint=data.get("push_endpoint", ""),
             push_keys=data.get("push_keys", {}),
             coordinates=coordinates,

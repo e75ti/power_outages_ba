@@ -24,20 +24,17 @@ class ElektroHercegovinaScraper(BaseScraper):
             response = self._get(self.BASE_URL)
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # Pronađi sve linkove ka pojedinačnim obavještenjima
             article_links = set()
             for a in soup.find_all("a", href=True):
                 href = a["href"]
-                # Tražimo linkove oblika /index.php/obavjestenja/2117
+                # Look for /index.php/obavjestenja/2117
                 if "/obavjestenja/" in href and any(c.isdigit() for c in href):
                     full_url = urljoin(self.DOMAIN, href)
                     article_links.add(full_url)
 
-            # Sortiramo unazad da prvo gledamo najveće ID-jeve (najnovije)
             sorted_links = sorted(list(article_links), reverse=True)
             self.logger.info(f"Found {len(sorted_links)} links. Scanning last 20...")
 
-            # Ograničavamo na zadnjih 10 da ne spamamo server
             for url in sorted_links[:20]:
                 try:
                     article_resp = self._get(url)
@@ -67,20 +64,16 @@ class ElektroHercegovinaScraper(BaseScraper):
         if not article_body:
             return outages
 
-        # Spoji sve paragrafe u jedan veliki tekst
         paragraphs = article_body.find_all("p")
         if not paragraphs:
-            # Ponekad ne koriste <p> tagove
             full_text = article_body.text.strip()
         else:
             full_text = " ".join([p.text.strip() for p in paragraphs if p.text.strip()])
 
-        # Ignoriši obavještenja koja nisu o isključenjima
         if "napajanj" not in full_text.lower():
             return outages
 
         try:
-            # 1. Pokušaj naći regiju/Opštinu pametnim Regex-om
             region = "Nepoznato"
 
             region_match = re.search(
@@ -102,10 +95,8 @@ class ElektroHercegovinaScraper(BaseScraper):
             if region_match:
                 region = region_match.group(1).capitalize()
 
-            # 2. Izvlačenje datuma
             date_match = re.search(r"(\d{1,2}\.\d{1,2}\.\d{4})", full_text)
 
-            # 3. Izvlačenje vremena (gađa "08:00 do 10:00" ili "9:30 do 12:00")
             time_match = re.search(
                 r"(\d{1,2}[:.]\d{2})\s*do\s*(\d{1,2}[:.]\d{2})", full_text
             )
@@ -126,7 +117,6 @@ class ElektroHercegovinaScraper(BaseScraper):
                 time_start = time_match.group(1).replace(".", ":")
                 time_end = time_match.group(2).replace(".", ":")
 
-            # 4. Izvlačenje područja (hvata sve iza 'preko', 'sa', ili 'radova na')
             area = "Lokalno područje"
             area_match = re.search(
                 r"(?:napajaju preko|snadbijevaju sa|radova na)\s+(.*?)(?:,|da će)",

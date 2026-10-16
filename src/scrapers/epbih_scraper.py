@@ -137,7 +137,7 @@ class EPBiHScraper(BaseScraper):
                 area=area,
                 streets=street,
                 date_start=date_start,
-                date_end=date_start,  # <--- THE FIX: Single pure date for both
+                date_end=date_start,
                 time_start=time_start,
                 time_end=time_end,
                 reason="Planirani radovi",  # EPBiH doesn't provide specific reasons
@@ -208,7 +208,7 @@ class EPBiHScraper(BaseScraper):
                     area=area,
                     streets=street,
                     date_start=date_start,
-                    date_end=date_start,  # <--- THE FIX: Single pure date for both
+                    date_end=date_start,
                     time_start=time_start,
                     time_end=time_end,
                     reason="Planirani radovi",

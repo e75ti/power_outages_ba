@@ -30,7 +30,7 @@ def test_expand_outage_numbers_mixed_list():
 
 
 def test_is_match():
-    # High confidence match
+    # Match
     assert (
         AddressMatcher.is_match(user_house_number="14", raw_outage_numbers="13-15")
         is True
@@ -41,12 +41,12 @@ def test_is_match():
         is False
     )
 
-    # WILDCARD SRE LOGIC: If user provides no number, they get the whole street
+    # If user provides no number, they get the whole street
     assert (
         AddressMatcher.is_match(user_house_number="", raw_outage_numbers="1, 2, 3")
         is True
     )
-    # WILDCARD SRE LOGIC: If EPBiH provides no number, the whole street is down
+    # If EPBiH provides no number, the whole street is down
     assert (
         AddressMatcher.is_match(user_house_number="42", raw_outage_numbers="") is True
     )

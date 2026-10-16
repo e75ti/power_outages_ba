@@ -16,17 +16,17 @@ class ElektroPaleScraper(BaseScraper):
 
     def scrape(self) -> List[Outage]:
         outages = []
-        pages_to_scrape = 2  # Gledamo prve 2 stranice za aktuelna isključenja
+        pages_to_scrape = 2  # prve 2 stranice za aktuelna isključenja
 
         for page in range(1, pages_to_scrape + 1):
             url = self.BASE_URL if page == 1 else f"{self.BASE_URL}page/{page}/"
 
             try:
                 self.logger.info(f"Scraping Elektro Pale - Page {page}...")
-                # Koristimo _get iz BaseScrapera koji hendla retries i SSL
+                # _get iz BaseScrapera koji hendla retries i SSL
                 response = self._get(url)
 
-                # Šaljemo HTML u obaveznu parse() metodu
+                # HTML u obaveznu parse() metodu
                 page_outages = self.parse(response.text)
 
                 if not page_outages:

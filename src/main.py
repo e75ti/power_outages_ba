@@ -56,7 +56,6 @@ def run_scrape_job():
 
         for outage in outages:
             if not getattr(outage, "coordinates", None):
-                # SRE FIX: Povećan limit na 150
                 if geocode_count >= 150:
                     logger.warning(
                         "Dosegnut limit geocodiranja (150) za ovaj ciklus. Ostalo prebacujem za idući run."
