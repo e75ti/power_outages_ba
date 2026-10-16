@@ -62,7 +62,7 @@ class SubscriptionService:
         return stats
 
     def process_reminders(self, all_active_outages) -> Dict[str, int]:
-        """Runs periodically to warn users of outages starting in the next 2 hours."""
+        """Runs periodically to warn users of outages starting in the next 24 hours or 2 hours."""
         import re
         from datetime import datetime, timedelta, timezone
 
@@ -89,9 +89,17 @@ class SubscriptionService:
                 start_dt = outage.date_start.replace(hour=hour, minute=minute)
                 time_until_outage = start_dt - now
 
-                # IS IT STARTING IN THE NEXT 2 HOURS?
-                if timedelta(hours=0) < time_until_outage <= timedelta(hours=2):
-                    reminder_id = f"{outage.outage_id}_reminder"
+                reminder_id = None
+                reminder_prefix = ""
+
+                if timedelta(hours=22) < time_until_outage <= timedelta(hours=24):
+                    reminder_id = f"{outage.outage_id}_reminder_24h"
+                    reminder_prefix = "📅 SUTRA: "
+                elif timedelta(hours=0) < time_until_outage <= timedelta(hours=2):
+                    reminder_id = f"{outage.outage_id}_reminder_2h"
+                    reminder_prefix = "⚠ USKORO: "
+
+                if reminder_id:
                     matches = self.geo_service.find_matching_subscriptions(
                         outage, subscriptions
                     )
@@ -101,7 +109,7 @@ class SubscriptionService:
                             reminder_id, sub.subscription_id
                         ):
                             original_area = outage.area
-                            outage.area = f"⚠️ PODSJETNIK: Struja nestaje uskoro! ⚠️\n{original_area}"
+                            outage.area = f"{reminder_prefix}Struja nestaje na ovoj adresi.\n{original_area}"
 
                             status = self.notification_service.send_outage_notification(
                                 sub, outage
@@ -112,6 +120,8 @@ class SubscriptionService:
                                     reminder_id, sub.subscription_id, success=True
                                 )
                                 stats["reminders_sent"] += 1
+                            elif status == NotificationStatus.EXPIRED:
+                                self.db.deactivate_subscription(sub.subscription_id)
 
                             outage.area = original_area
             except Exception as e:
