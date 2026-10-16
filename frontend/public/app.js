@@ -26,7 +26,7 @@ function checkIOSAndPrompt() {
             ">U redu, razumijem</button>
         `;
         document.body.appendChild(iosPrompt);
-        
+
         const subBtn = document.getElementById('subBtn');
         subBtn.disabled = true;
         subBtn.innerText = "Zaključano (Dodajte na početni zaslon)";
@@ -62,7 +62,9 @@ function urlB64ToUint8Array(base64String) {
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
     return outputArray;
 }
 
@@ -90,7 +92,7 @@ async function loadStats() {
         const res = await fetch(`${API_BASE_URL}/stats/overview`);
         if (!res.ok) throw new Error("API Connection Failed");
         const stats = await res.json();
-        
+
         document.getElementById('statOutages').innerText = stats.active_outages ?? '--';
         document.getElementById('statUsers').innerText = stats.protected_users ?? '--';
         document.getElementById('badge-outages').innerText = stats.active_outages ?? '--';
@@ -106,21 +108,21 @@ async function loadOutages() {
     try {
         const res = await fetch(`${API_BASE_URL}/outages/active`);
         const outages = await res.json();
-        
+
         // PERFORMANCE FIX: Leaflet MarkerCluster
         const markers = L.markerClusterGroup({
             chunkedLoading: true,
             maxClusterRadius: 50
         });
-        
+
         outages.forEach(outage => {
             if (outage.lat && outage.lng) {
                 const marker = L.marker([outage.lat, outage.lng])
-                 .bindPopup(`<b>${outage.municipality}</b><br>${outage.area}`);
+                    .bindPopup(`<b>${outage.municipality}</b><br>${outage.area}`);
                 markers.addLayer(marker);
             }
         });
-        
+
         map.addLayer(markers);
     } catch (err) {
         console.error("Failed to load outages:", err);
@@ -136,7 +138,10 @@ map.on('click', async function(e) {
         icon: L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
         })
     }).addTo(map);
 
@@ -147,17 +152,20 @@ map.on('click', async function(e) {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
         const data = await res.json();
         const address = data.address || {};
-        
+
         const street = address.road || address.pedestrian || address.suburb || "BB";
         cityInput.value = address.city || address.town || address.village || address.municipality || "";
         streetInput.value = street === "BB" ? "" : street;
         numberInput.value = address.house_number || "";
-        
+
         statusDiv.innerHTML = "";
         validateInputs();
-        
+
         // Auto-scroll up to the Subscribe button so the user knows what to do next
-        document.getElementById('subBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('subBtn').scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
     } catch (err) {
         statusDiv.innerHTML = "❌ Greška pri lociranju. Molimo unesite ručno.";
         statusDiv.style.color = "red";
@@ -172,19 +180,19 @@ async function subscribePush() {
     try {
         statusDiv.innerHTML = "⏳ Generišem sigurni ključ...<br><span style='font-size: 0.85em; color: var(--text-subtitle);'>Ovo može potrajati nekoliko sekundi zavisno od vaše mreže. Ne zatvarajte prozor.</span>";
         statusDiv.style.color = "var(--text-main)";
-        
+
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') throw new Error('Notifikacije su blokirane u vašem pregledniku. Morate ih dozvoliti u postavkama (kliknite katanac pored URL adrese.');
 
         // 1. Pokreni registraciju
         await navigator.serviceWorker.register('/sw.js');
-        
+
         // Wait Service Worker bude 100% spreman
         const registration = await navigator.serviceWorker.ready;
-        
+
         // Da li već postoji pretplata za ovaj uređaj?
         let subscription = await registration.pushManager.getSubscription();
-        
+
         if (subscription) {
             console.log("Korisnik već ima aktivan Push ključ. Koristim postojeći za novu ulicu.");
             // NE radimo unsubscribe!
@@ -198,12 +206,14 @@ async function subscribePush() {
         }
 
         const subData = subscription.toJSON();
-        
+
         const isRuralChecked = document.getElementById('ruralInput') ? document.getElementById('ruralInput').checked : false;
 
         const res = await fetch(`${API_BASE_URL}/subscribe`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 street_name: street,
                 municipality: municipality,
@@ -213,7 +223,7 @@ async function subscribePush() {
                 is_rural: isRuralChecked
             })
         });
-          
+
         if (res.ok) {
             statusDiv.innerHTML = "✅ Uspješno ste prijavljeni za obavijesti!";
             statusDiv.style.color = "#10b981";
