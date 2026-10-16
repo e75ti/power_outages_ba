@@ -179,10 +179,10 @@ async function subscribePush() {
         // 1. Pokreni registraciju
         await navigator.serviceWorker.register('/sw.js');
         
-        // 2. KLJUČNO: Sačekaj da Service Worker bude 100% spreman
+        // Wait Service Worker bude 100% spreman
         const registration = await navigator.serviceWorker.ready;
         
-        // 3. PAMETNI FIX: Da li već postoji pretplata za ovaj uređaj?
+        // Da li već postoji pretplata za ovaj uređaj?
         let subscription = await registration.pushManager.getSubscription();
         
         if (subscription) {
@@ -199,7 +199,8 @@ async function subscribePush() {
 
         const subData = subscription.toJSON();
         
-        // 4. Šaljemo u bazu. Baza će sada samo dodati novu ulicu na isti ovaj endpoint.
+        const isRuralChecked = document.getElementById('ruralInput') ? document.getElementById('ruralInput').checked : false;
+
         const res = await fetch(`${API_BASE_URL}/subscribe`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -209,7 +210,7 @@ async function subscribePush() {
                 house_number: house_number,
                 push_endpoint: subData.endpoint,
                 push_keys: subData.keys,
-                is_rural: false
+                is_rural: isRuralChecked
             })
         });
           

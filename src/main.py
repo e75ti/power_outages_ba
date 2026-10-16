@@ -56,10 +56,10 @@ def run_scrape_job():
 
         for outage in outages:
             if not getattr(outage, "coordinates", None):
-                # HTTP 429: Cool off, do 30 new adds max per fetch
-                if geocode_count >= 30:
+                # SRE FIX: Povećan limit na 150
+                if geocode_count >= 150:
                     logger.warning(
-                        "Dosegnut limit geocodiranja (30) za ovaj ciklus. Ostalo prebacujem za idući run."
+                        "Dosegnut limit geocodiranja (150) za ovaj ciklus. Ostalo prebacujem za idući run."
                     )
                     break
 
@@ -69,10 +69,8 @@ def run_scrape_job():
                 if lat and lon:
                     outage.coordinates = (lat, lon)
                 else:
-                    # NEGATIVE CACHING: Zabilježi -999.0 da ne bi ponovo tražili ovu istu nepostojeću adresu idući put
                     outage.coordinates = (-999.0, -999.0)
                 db_manager.save_outages([outage])
-                time.sleep(1.5)
 
         logger.info("Cleanup: Skipped (Historical data retention set to INFINITE)")
         logger.info("=" * 60)

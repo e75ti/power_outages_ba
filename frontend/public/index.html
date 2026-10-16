@@ -108,6 +108,10 @@
                     <label>Kućni broj (opcionalno)</label>
                     <input type="text" id="numberInput" placeholder="npr. 42 (Ostavite prazno za cijelu ulicu)">
                 </div>
+                <div class="input-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; background: var(--bg-info); padding: 12px; border-radius: 6px; border: 1px solid var(--border-input);">
+                   <input type="checkbox" id="ruralInput" style="width: 20px; height: 20px; margin: 0; cursor: pointer;">
+                   <label for="ruralInput" style="margin: 0; font-weight: normal; cursor: pointer;">Ovo je vangradsko/ruralno područje (širi radijus obavijesti)</label>
+               </div>
             </div>
 
             <div class="step-block" style="border-left-color: #10b981;">
@@ -180,6 +184,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <!-- CACHE BUSTING APP.JS TO FORCE THE UPDATE -->
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

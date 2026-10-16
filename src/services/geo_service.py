@@ -103,8 +103,11 @@ class GeoService:
             return False
 
         street_found = False
+        import re
+
+        pattern = rf"\b{re.escape(street)}\b"
         for text in outage_texts:
-            if street in text:
+            if re.search(pattern, text):
                 street_found = True
                 break
 
@@ -112,7 +115,7 @@ class GeoService:
             street_found = self._fuzzy_street_match(street, outage_texts)
 
         if street_found:
-            return AddressMatcher.is_match(subscription.house_number, outage.area)
+            return AddressMatcher.is_match(subscription.house_number, outage.raw_text)
 
         return False
 
@@ -130,27 +133,37 @@ class GeoService:
         return False
 
     def _area_match(self, outage: Outage, subscription: Subscription) -> bool:
-        sub_coords = subscription.coordinates or self._geocode_location(
-            subscription.street_name, subscription.municipality
-        )
+        sub_coords = subscription.coordinates
+        # Ignore false (-999.0)
+        if sub_coords and sub_coords[0] == -999.0:
+            sub_coords = None
+
+        if not sub_coords:
+            sub_coords = self._geocode_location(
+                subscription.street_name, subscription.municipality
+            )
+
         if not sub_coords:
             return False
 
-        outage_coords = outage.coordinates or self._geocode_location(
-            outage.area, outage.municipality
-        )
+        outage_coords = outage.coordinates
+        if outage_coords and outage_coords[0] == -999.0:
+            outage_coords = None
+
+        if not outage_coords:
+            outage_coords = self._geocode_location(outage.area, outage.municipality)
+
         if not outage_coords:
             return False
 
         distance = geodesic(sub_coords, outage_coords).kilometers
 
-        # SRE LOGIC: Dynamic Radius
         if subscription.is_rural:
-            radius = 5.0  # Rural/Town fallback
+            radius = 5.0
         elif self._is_major_city(subscription.municipality):
             radius = 0.2
         else:
-            radius = 0.5  # Urban strict fallback
+            radius = 0.5
 
         is_match = distance <= radius
 
@@ -166,34 +179,38 @@ class GeoService:
     ) -> Optional[Tuple[float, float]]:
         import re
 
-        clean_street = re.split(r"\d|,", street)[0].strip()
+        clean_street = re.sub(r"\(.*?\)", "", street)
+        clean_street = clean_street.split(",")[0].strip()
+        clean_street = re.split(r"\d", clean_street)[0].strip()
         if not clean_street or len(clean_street) < 2:
             clean_street = street.split(",")[0].strip()
+
         query = f"{clean_street}, {municipality}, Bosnia and Herzegovina"
         if self.db:
             cached = self.db.get_cached_coordinates(query)
             if cached:
+                if cached[0] == -999.0:
+                    return None
                 return cached
 
-        time.sleep(1.1)
+        time.sleep(1.5)
 
         try:
-            location = self.geolocator.geocode(query) or self.geolocator.geocode(
-                f"{municipality}, Bosnia and Herzegovina"
-            )
+            location = self.geolocator.geocode(query)
+
             if location:
                 coords = (location.latitude, location.longitude)
                 if self.db:
                     self.db.cache_coordinates(query, coords[0], coords[1])
                 return coords
+            else:
+                if self.db:
+                    self.db.cache_coordinates(query, -999.0, -999.0)
+                return None
+
         except (GeocoderTimedOut, GeocoderServiceError) as e:
             self.logger.warning(f"Geocoding failed for {query}: {e}")
-            if "400" in str(e) and self.db:
-                self.logger.warning(
-                    f"For the same {query}, {e} I wrote -999 lat/lon for this query since it returned 400."
-                )
-                self.db.cache_coordinates(query, -999.0, -999.0)
-        return None
+            return None
 
     def _is_major_city(self, municipality: str) -> bool:
         return self._normalize_text(municipality) in self.MAJOR_CITIES
